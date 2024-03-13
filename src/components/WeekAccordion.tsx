@@ -74,18 +74,22 @@ const WeekAccordion: React.FC<Props> = props => {
           />
         </View>
       </View>
-
       {props.sessions.map(session => (
         <View key={session.id} style={[styles.day]}>
-          <View style={[row, styles.header]}>
+          <View
+            style={[
+              row,
+              styles.header,
+              session.finished && {backgroundColor: colors.secondary},
+            ]}>
             <AppText style={{color: '#fff'}} bold>
               {session.day}
             </AppText>
 
             <MaterialIcons
               style={styles.icon}
-              name={props.finished ? 'done' : 'timeline'}
-              color={props.finished ? colors.secondary : '#aaa'}
+              name={session.finished ? 'done' : 'timeline'}
+              color={session.finished ? colors.primary : '#aaa'}
               size={20}
             />
           </View>

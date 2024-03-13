@@ -19,7 +19,7 @@ interface Props {
   title?: string;
   iconSize?: number;
   iconColor?: string;
-  closed?: boolean;
+  closed?: '1' | '0';
   icon?: string;
   controlIcon?: string;
   style?: StyleProp<ViewStyle>;
