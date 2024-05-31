@@ -20,33 +20,6 @@ const Home: React.FC<BaseProps> = ({route}) => {
       Math.floor(Math.random() * demotivationalQuotes.length - 1)
     ];
 
-  async function requestStoragePermission() {
-    try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-        {
-          title: 'Storage Permission',
-          message: 'App needs access to your storage to read the exported data',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        },
-      );
-
-      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-        console.log('You can use the storage');
-        return true;
-      } else {
-        console.log('Storage permission denied');
-        return false;
-      }
-    } catch (err) {
-      console.warn(err);
-    }
-  }
-
-  requestStoragePermission();
-
   return (
     <View style={styles.root}>
       {!!puppy && (
@@ -76,9 +49,6 @@ const Home: React.FC<BaseProps> = ({route}) => {
         title="Import data"
         onPress={async () => {
           try {
-            const granted = await requestStoragePermission();
-            if (!granted) return;
-
             await setSubmitting(true);
             await importDataFromJSON();
           } catch (_e) {

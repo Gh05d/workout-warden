@@ -451,7 +451,7 @@ export async function exportDataToJSON() {
 
 export async function importDataFromJSON() {
   const db = await getDBConnection();
-  const path = `${fs.DownloadDirectoryPath}/warden-exportedData.json`;
+  const path = `${fs.DocumentDirectoryPath}/warden-exportedData.json`;
 
   try {
     // Read JSON file from the Downloads directory

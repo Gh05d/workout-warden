@@ -10,7 +10,7 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "USE_CONSOLE=true npx react-native start --reset-cache --experimental-debugger",
-    "create-prod:android": "cd android && ./gradlew bundleRelease",
+    "create-prod:android": "cd android && ./gradlew assembleRelease",
     "test": "jest"
   },
   "dependencies": {
