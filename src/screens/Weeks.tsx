@@ -4,7 +4,6 @@ import {StyleSheet, View, FlatList, Button, RefreshControl} from 'react-native';
 import {colors} from '../common/variables';
 import AppText from '../components/AppText';
 import {
-  deleteWorkoutProgram,
   fetchWeeks,
   getDBConnection,
   getNewWorkoutProgramType,
@@ -14,10 +13,9 @@ import Toast from '../components/Toast';
 import LoadingModal from '../components/LoadingModal';
 import Error from '../components/Error';
 import Loading from '../components/Loading';
-import {boxShadow, row} from '../common/styles';
 import WeekAccordion from '../components/WeekAccordion';
 
-const Weeks: React.FC<BaseProps> = ({navigation}) => {
+const Weeks: React.FC<BaseProps> = ({}) => {
   const [weeks, setWeeks] = React.useState<Week[]>([]);
   const [error, setError] = React.useState<null | Error>(null);
   const [initError, setInitError] = React.useState<null | Error>(null);

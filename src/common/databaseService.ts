@@ -1,5 +1,7 @@
 import {SQLiteDatabase, openDatabase} from 'react-native-sqlite-storage';
+import fs from 'react-native-fs';
 import {training} from './variables';
+import {Alert} from 'react-native';
 
 export const getDBConnection = async () => {
   return openDatabase({name: 'warden.db', location: 'default'});
@@ -411,4 +413,124 @@ export async function fetchExerciseProgress(
 export async function getAllExercises(db: SQLiteDatabase) {
   const [results] = await db.executeSql('SELECT name FROM exercises;');
   return results?.rows.raw();
+}
+
+export async function exportDataToJSON() {
+  const db = await getDBConnection();
+
+  try {
+    const [setsResult] = await db.executeSql('SELECT * FROM sets;');
+    const [exercisesResult] = await db.executeSql('SELECT * FROM exercises;');
+    const [trainingDaysResult] = await db.executeSql(
+      'SELECT * FROM training_days;',
+    );
+    const [trainingDayExercisesResult] = await db.executeSql(
+      'SELECT * FROM training_day_exercises;',
+    );
+    const [workoutProgramsResult] = await db.executeSql(
+      'SELECT * FROM workout_programs;',
+    );
+
+    // Convert results to JSON
+    const data = {
+      sets: setsResult.rows.raw(),
+      exercises: exercisesResult.rows.raw(),
+      training_days: trainingDaysResult.rows.raw(),
+      training_day_exercises: trainingDayExercisesResult.rows.raw(),
+      workout_programs: workoutProgramsResult.rows.raw(),
+    };
+
+    // Write data to a JSON file
+    const path = `${fs.DownloadDirectoryPath}/warden-exportedData.json`;
+    await fs.writeFile(path, JSON.stringify(data), 'utf8');
+    return Alert.alert('Success', `Data export to ${path}`);
+  } catch (error) {
+    Alert.alert('Export failed', (error as Error)?.message);
+  }
+}
+
+export async function importDataFromJSON() {
+  const db = await getDBConnection();
+  const path = `${fs.DownloadDirectoryPath}/warden-exportedData.json`;
+
+  try {
+    // Read JSON file from the Downloads directory
+    const jsonString = await fs.readFile(path, 'utf8');
+    const data = JSON.parse(jsonString);
+
+    // Insert data into SQLite database
+    await db.transaction(tx => {
+      const insertData = async () => {
+        // Insert sets
+        for (const set of data.sets) {
+          await tx.executeSql(
+            'INSERT OR REPLACE INTO sets (id, training_day_exercise_id, weight, reps) VALUES (?, ?, ?, ?);',
+            [set.id, set.training_day_exercise_id, set.weight, set.reps],
+          );
+        }
+
+        // Insert exercises
+        for (const exercise of data.exercises) {
+          await tx.executeSql(
+            'INSERT OR REPLACE INTO exercises (id, sets, name, hint, sled, time, video) VALUES (?, ?, ?, ?, ?, ?, ?);',
+            [
+              exercise.id,
+              exercise.sets,
+              exercise.name,
+              exercise.hint,
+              exercise.sled,
+              exercise.time,
+              exercise.video,
+            ],
+          );
+        }
+
+        // Insert training days
+        for (const trainingDay of data.training_days) {
+          await tx.executeSql(
+            'INSERT OR REPLACE INTO training_days (id, workout_program_id, day, finished) VALUES (?, ?, ?, ?);',
+            [
+              trainingDay.id,
+              trainingDay.workout_program_id,
+              trainingDay.day,
+              trainingDay.finished,
+            ],
+          );
+        }
+
+        // Insert training day exercises
+        for (const trainingDayExercise of data.training_day_exercises) {
+          await tx.executeSql(
+            'INSERT OR REPLACE INTO training_day_exercises (id, training_day_id, exercise_id, finished) VALUES (?, ?, ?, ?);',
+            [
+              trainingDayExercise.id,
+              trainingDayExercise.training_day_id,
+              trainingDayExercise.exercise_id,
+              trainingDayExercise.finished,
+            ],
+          );
+        }
+
+        // Insert workout programs
+        for (const workoutProgram of data.workout_programs) {
+          await tx.executeSql(
+            'INSERT OR REPLACE INTO workout_programs (id, type, start_date, end_date, finished) VALUES (?, ?, ?, ?, ?);',
+            [
+              workoutProgram.id,
+              workoutProgram.type,
+              workoutProgram.start_date,
+              workoutProgram.end_date,
+              workoutProgram.finished,
+            ],
+          );
+        }
+      };
+
+      return insertData();
+    });
+
+    Alert.alert('Success', 'Data imported successfully');
+  } catch (error) {
+    Alert.alert('Import failed', (error as Error)?.message);
+  }
 }

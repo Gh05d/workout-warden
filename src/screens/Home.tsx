@@ -1,10 +1,13 @@
 import React from 'react';
-import {Image, StyleSheet, View} from 'react-native';
-import {demotivationalQuotes} from '../common/variables';
+import {Button, Image, StyleSheet, View} from 'react-native';
+import {colors, demotivationalQuotes} from '../common/variables';
 import AppText from '../components/AppText';
+import {exportDataToJSON, importDataFromJSON} from '../common/databaseService';
 
 const Home: React.FC<BaseProps> = ({route}) => {
   const {puppy} = route?.params as {puppy: string};
+
+  const [submitting, setSubmitting] = React.useState(false);
 
   const quote =
     demotivationalQuotes[
@@ -19,6 +22,36 @@ const Home: React.FC<BaseProps> = ({route}) => {
       <AppText style={{fontSize: 16}} italic>
         {quote}
       </AppText>
+
+      <Button
+        color={colors.primary}
+        title="Export data"
+        onPress={async () => {
+          try {
+            await setSubmitting(true);
+            await exportDataToJSON();
+          } catch (_e) {
+          } finally {
+            setSubmitting(false);
+          }
+        }}
+        disabled={submitting}
+      />
+
+      <Button
+        color={colors.primary}
+        title="Import data"
+        onPress={async () => {
+          try {
+            await setSubmitting(true);
+            await importDataFromJSON();
+          } catch (_e) {
+          } finally {
+            setSubmitting(false);
+          }
+        }}
+        disabled={submitting}
+      />
     </View>
   );
 };
