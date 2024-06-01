@@ -392,9 +392,9 @@ export async function deleteWorkoutProgram(workoutProgramId: number) {
   );
 }
 
+const dbPath = '/data/data/com.workoutwarden/databases/warden.db';
+
 export async function exportDatabase() {
-  const dbName = 'warden.db';
-  const dbPath = `/data/data/com.workoutwarden/databases/${dbName}`;
   const exportPath = `${RNFS.DownloadDirectoryPath}/warden-exported.db`;
 
   try {
@@ -407,9 +407,10 @@ export async function exportDatabase() {
 }
 
 export async function importDatabase(importPath: string) {
-  const dbPath = `${RNFS.DocumentDirectoryPath}/warden.db`;
-
   try {
+    const db = await getDBConnection();
+    await db.close();
+
     await RNFS.copyFile(importPath, dbPath);
     Alert.alert('Success', 'Database imported successfully');
   } catch (error) {
