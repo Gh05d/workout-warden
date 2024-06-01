@@ -1,11 +1,10 @@
 import React from 'react';
 import {Button, Image, StyleSheet, View} from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
-import RNFS from 'react-native-fs';
 
 import {colors, demotivationalQuotes} from '../common/variables';
 import AppText from '../components/AppText';
-import {exportDataToJSON, importDataFromJSON} from '../common/databaseService';
+import {exportDatabase, importDatabase} from '../common/databaseService';
 
 const Home: React.FC<BaseProps> = ({route}) => {
   const {puppy} = route?.params as {puppy: string};
@@ -20,12 +19,12 @@ const Home: React.FC<BaseProps> = ({route}) => {
   async function pickFile() {
     try {
       const res = await DocumentPicker.pickSingle({
-        type: [DocumentPicker.types.json],
+        type: [DocumentPicker.types.allFiles],
       });
 
-      // Read the file content
-      const content = await RNFS.readFile(res.uri, 'utf8');
-      return content;
+      console.log(res);
+
+      return res.uri;
     } catch (err) {
       if (DocumentPicker.isCancel(err)) {
         console.log('User canceled the picker');
@@ -50,7 +49,7 @@ const Home: React.FC<BaseProps> = ({route}) => {
         onPress={async () => {
           try {
             await setSubmitting(true);
-            await exportDataToJSON();
+            await exportDatabase();
           } catch (_e) {
           } finally {
             setSubmitting(false);
@@ -66,7 +65,7 @@ const Home: React.FC<BaseProps> = ({route}) => {
           try {
             await setSubmitting(true);
             const data = await pickFile();
-            await importDataFromJSON(JSON.parse(data));
+            await importDatabase(data);
           } catch (_e) {
           } finally {
             setSubmitting(false);

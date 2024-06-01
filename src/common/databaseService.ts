@@ -1,7 +1,8 @@
-import {SQLiteDatabase, openDatabase} from 'react-native-sqlite-storage';
-import fs from 'react-native-fs';
-import {training} from './variables';
 import {Alert} from 'react-native';
+import {SQLiteDatabase, openDatabase} from 'react-native-sqlite-storage';
+import RNFS from 'react-native-fs';
+
+import {training} from './variables';
 
 export const getDBConnection = async () => {
   return openDatabase({name: 'warden.db', location: 'default'});
@@ -391,163 +392,28 @@ export async function deleteWorkoutProgram(workoutProgramId: number) {
   );
 }
 
-export async function fetchExerciseProgress(
-  db: SQLiteDatabase,
-  exerciseName: string,
-) {
-  const query = `
-    SELECT wp.start_date, tde.id as training_day_id, s.reps, s.weight, s.id
-    FROM sets s
-    INNER JOIN training_day_exercises tde ON s.training_day_exercise_id = tde.id
-    INNER JOIN exercises e ON tde.exercise_id = e.id
-    INNER JOIN training_days td ON tde.training_day_id = td.id
-    INNER JOIN workout_programs wp ON td.workout_program_id = wp.id
-    WHERE e.name = ?
-    ORDER BY wp.start_date ASC;
-  `;
-
-  const [results] = await db.executeSql(query, [exerciseName]);
-  return results?.rows.raw();
-}
-
-export async function getAllExercises(db: SQLiteDatabase) {
-  const [results] = await db.executeSql('SELECT name FROM exercises;');
-  return results?.rows.raw();
-}
-
-export async function exportDataToJSON() {
-  const db = await getDBConnection();
+export async function exportDatabase() {
+  const dbName = 'warden.db';
+  const dbPath = `/data/data/com.workoutwarden/databases/${dbName}`;
+  const exportPath = `${RNFS.DownloadDirectoryPath}/warden-exported.db`;
 
   try {
-    const [setsResult] = await db.executeSql('SELECT * FROM sets;');
-    const [exercisesResult] = await db.executeSql('SELECT * FROM exercises;');
-    const [trainingDaysResult] = await db.executeSql(
-      'SELECT * FROM training_days;',
-    );
-    const [trainingDayExercisesResult] = await db.executeSql(
-      'SELECT * FROM training_day_exercises;',
-    );
-    const [workoutProgramsResult] = await db.executeSql(
-      'SELECT * FROM workout_programs;',
-    );
-
-    // Convert results to JSON
-    const data = {
-      sets: setsResult.rows.raw(),
-      exercises: exercisesResult.rows.raw(),
-      training_days: trainingDaysResult.rows.raw(),
-      training_day_exercises: trainingDayExercisesResult.rows.raw(),
-      workout_programs: workoutProgramsResult.rows.raw(),
-    };
-
-    // Write data to a JSON file
-    const path = `${fs.DownloadDirectoryPath}/warden-exportedData.json`;
-    await fs.writeFile(path, JSON.stringify(data), 'utf8');
-    return Alert.alert('Success', `Data export to ${path}`);
+    await RNFS.copyFile(dbPath, exportPath);
+    Alert.alert('Success', `Database exported to ${exportPath}`);
   } catch (error) {
+    console.error('Error exporting database:', error);
     Alert.alert('Export failed', (error as Error)?.message);
   }
 }
 
-export async function importDataFromJSON(data: ImportData) {
-  const db = await getDBConnection();
+export async function importDatabase(importPath: string) {
+  const dbPath = `${RNFS.DocumentDirectoryPath}/warden.db`;
 
   try {
-    // Insert data into SQLite database
-    await db.transaction(async tx => {
-      // Insert sets
-      for (const set of data.sets) {
-        await tx
-          .executeSql(
-            'INSERT OR REPLACE INTO sets (id, training_day_exercise_id, weight, reps) VALUES (?, ?, ?, ?);',
-            [set.id, set.training_day_exercise_id, set.weight, set.reps],
-          )
-          .catch(error => {
-            console.error('Error inserting set:', error);
-            throw error;
-          });
-      }
-
-      // Insert exercises
-      for (const exercise of data.exercises) {
-        await tx
-          .executeSql(
-            'INSERT OR REPLACE INTO exercises (id, sets, name, hint, sled, time, video) VALUES (?, ?, ?, ?, ?, ?, ?);',
-            [
-              exercise.id,
-              exercise.sets,
-              exercise.name,
-              exercise.hint,
-              exercise.sled,
-              exercise.time,
-              exercise.video,
-            ],
-          )
-          .catch(error => {
-            console.error('Error inserting exercise:', error);
-            throw error;
-          });
-      }
-
-      // Insert training days
-      for (const trainingDay of data.training_days) {
-        await tx
-          .executeSql(
-            'INSERT OR REPLACE INTO training_days (id, workout_program_id, day, finished) VALUES (?, ?, ?, ?);',
-            [
-              trainingDay.id,
-              trainingDay.workout_program_id,
-              trainingDay.day,
-              trainingDay.finished,
-            ],
-          )
-          .catch(error => {
-            console.error('Error inserting training day:', error);
-            throw error;
-          });
-      }
-
-      // Insert training day exercises
-      for (const trainingDayExercise of data.training_day_exercises) {
-        await tx
-          .executeSql(
-            'INSERT OR REPLACE INTO training_day_exercises (id, training_day_id, exercise_id, finished) VALUES (?, ?, ?, ?);',
-            [
-              trainingDayExercise.id,
-              trainingDayExercise.training_day_id,
-              trainingDayExercise.exercise_id,
-              trainingDayExercise.finished,
-            ],
-          )
-          .catch(error => {
-            console.error('Error inserting training day exercise:', error);
-            throw error;
-          });
-      }
-
-      // Insert workout programs
-      for (const workoutProgram of data.workout_programs) {
-        await tx
-          .executeSql(
-            'INSERT OR REPLACE INTO workout_programs (id, type, start_date, end_date, finished) VALUES (?, ?, ?, ?, ?);',
-            [
-              workoutProgram.id,
-              workoutProgram.type,
-              workoutProgram.start_date,
-              workoutProgram.end_date,
-              workoutProgram.finished,
-            ],
-          )
-          .catch(error => {
-            console.error('Error inserting workout program:', error);
-            throw error;
-          });
-      }
-    });
-
-    Alert.alert('Success', 'Data imported successfully');
+    await RNFS.copyFile(importPath, dbPath);
+    Alert.alert('Success', 'Database imported successfully');
   } catch (error) {
-    console.error('Transaction error:', error);
-    Alert.alert('Import failed', error.message);
+    console.error('Error importing database:', error);
+    Alert.alert('Import failed', (error as Error)?.message);
   }
 }
