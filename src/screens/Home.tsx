@@ -1,11 +1,8 @@
 import React from 'react';
-import {
-  Button,
-  Image,
-  PermissionsAndroid,
-  StyleSheet,
-  View,
-} from 'react-native';
+import {Button, Image, StyleSheet, View} from 'react-native';
+import DocumentPicker from 'react-native-document-picker';
+import RNFS from 'react-native-fs';
+
 import {colors, demotivationalQuotes} from '../common/variables';
 import AppText from '../components/AppText';
 import {exportDataToJSON, importDataFromJSON} from '../common/databaseService';
@@ -19,6 +16,24 @@ const Home: React.FC<BaseProps> = ({route}) => {
     demotivationalQuotes[
       Math.floor(Math.random() * demotivationalQuotes.length - 1)
     ];
+
+  async function pickFile() {
+    try {
+      const res = await DocumentPicker.pickSingle({
+        type: [DocumentPicker.types.json],
+      });
+
+      // Read the file content
+      const content = await RNFS.readFile(res.uri, 'utf8');
+      return content;
+    } catch (err) {
+      if (DocumentPicker.isCancel(err)) {
+        console.log('User canceled the picker');
+      } else {
+        throw err;
+      }
+    }
+  }
 
   return (
     <View style={styles.root}>
@@ -50,7 +65,8 @@ const Home: React.FC<BaseProps> = ({route}) => {
         onPress={async () => {
           try {
             await setSubmitting(true);
-            await importDataFromJSON();
+            const data = await pickFile();
+            await importDataFromJSON(JSON.parse(data));
           } catch (_e) {
           } finally {
             setSubmitting(false);

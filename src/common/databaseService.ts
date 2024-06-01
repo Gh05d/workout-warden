@@ -449,84 +449,105 @@ export async function exportDataToJSON() {
   }
 }
 
-export async function importDataFromJSON() {
+export async function importDataFromJSON(data: ImportData) {
   const db = await getDBConnection();
-  const path = `${fs.DownloadDirectoryPath}/warden-exportedData.json`;
 
   try {
-    // Read JSON file from the Downloads directory
-    const jsonString = await fs.readFile(path, 'utf8');
-    const data = JSON.parse(jsonString);
-
     // Insert data into SQLite database
     await db.transaction(async tx => {
       // Insert sets
       for (const set of data.sets) {
-        await tx.executeSql(
-          'INSERT OR REPLACE INTO sets (id, training_day_exercise_id, weight, reps) VALUES (?, ?, ?, ?);',
-          [set.id, set.training_day_exercise_id, set.weight, set.reps],
-        );
+        await tx
+          .executeSql(
+            'INSERT OR REPLACE INTO sets (id, training_day_exercise_id, weight, reps) VALUES (?, ?, ?, ?);',
+            [set.id, set.training_day_exercise_id, set.weight, set.reps],
+          )
+          .catch(error => {
+            console.error('Error inserting set:', error);
+            throw error;
+          });
       }
 
       // Insert exercises
       for (const exercise of data.exercises) {
-        await tx.executeSql(
-          'INSERT OR REPLACE INTO exercises (id, sets, name, hint, sled, time, video) VALUES (?, ?, ?, ?, ?, ?, ?);',
-          [
-            exercise.id,
-            exercise.sets,
-            exercise.name,
-            exercise.hint,
-            exercise.sled,
-            exercise.time,
-            exercise.video,
-          ],
-        );
+        await tx
+          .executeSql(
+            'INSERT OR REPLACE INTO exercises (id, sets, name, hint, sled, time, video) VALUES (?, ?, ?, ?, ?, ?, ?);',
+            [
+              exercise.id,
+              exercise.sets,
+              exercise.name,
+              exercise.hint,
+              exercise.sled,
+              exercise.time,
+              exercise.video,
+            ],
+          )
+          .catch(error => {
+            console.error('Error inserting exercise:', error);
+            throw error;
+          });
       }
 
       // Insert training days
       for (const trainingDay of data.training_days) {
-        await tx.executeSql(
-          'INSERT OR REPLACE INTO training_days (id, workout_program_id, day, finished) VALUES (?, ?, ?, ?);',
-          [
-            trainingDay.id,
-            trainingDay.workout_program_id,
-            trainingDay.day,
-            trainingDay.finished,
-          ],
-        );
+        await tx
+          .executeSql(
+            'INSERT OR REPLACE INTO training_days (id, workout_program_id, day, finished) VALUES (?, ?, ?, ?);',
+            [
+              trainingDay.id,
+              trainingDay.workout_program_id,
+              trainingDay.day,
+              trainingDay.finished,
+            ],
+          )
+          .catch(error => {
+            console.error('Error inserting training day:', error);
+            throw error;
+          });
       }
 
       // Insert training day exercises
       for (const trainingDayExercise of data.training_day_exercises) {
-        await tx.executeSql(
-          'INSERT OR REPLACE INTO training_day_exercises (id, training_day_id, exercise_id, finished) VALUES (?, ?, ?, ?);',
-          [
-            trainingDayExercise.id,
-            trainingDayExercise.training_day_id,
-            trainingDayExercise.exercise_id,
-            trainingDayExercise.finished,
-          ],
-        );
+        await tx
+          .executeSql(
+            'INSERT OR REPLACE INTO training_day_exercises (id, training_day_id, exercise_id, finished) VALUES (?, ?, ?, ?);',
+            [
+              trainingDayExercise.id,
+              trainingDayExercise.training_day_id,
+              trainingDayExercise.exercise_id,
+              trainingDayExercise.finished,
+            ],
+          )
+          .catch(error => {
+            console.error('Error inserting training day exercise:', error);
+            throw error;
+          });
       }
 
       // Insert workout programs
       for (const workoutProgram of data.workout_programs) {
-        await tx.executeSql(
-          'INSERT OR REPLACE INTO workout_programs (id, type, start_date, end_date, finished) VALUES (?, ?, ?, ?, ?);',
-          [
-            workoutProgram.id,
-            workoutProgram.type,
-            workoutProgram.start_date,
-            workoutProgram.end_date,
-            workoutProgram.finished,
-          ],
-        );
+        await tx
+          .executeSql(
+            'INSERT OR REPLACE INTO workout_programs (id, type, start_date, end_date, finished) VALUES (?, ?, ?, ?, ?);',
+            [
+              workoutProgram.id,
+              workoutProgram.type,
+              workoutProgram.start_date,
+              workoutProgram.end_date,
+              workoutProgram.finished,
+            ],
+          )
+          .catch(error => {
+            console.error('Error inserting workout program:', error);
+            throw error;
+          });
       }
     });
 
     Alert.alert('Success', 'Data imported successfully');
   } catch (error) {
-    Alert.alert('Import failed', (error as Error)?.message);
+    console.error('Transaction error:', error);
+    Alert.alert('Import failed', error.message);
   }
 }

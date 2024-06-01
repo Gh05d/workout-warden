@@ -75,3 +75,33 @@ interface Week {
   finished: 0 | 1;
   sessions: TrainingDay[];
 }
+
+interface Set {
+  id: number;
+  training_day_exercise_id: number;
+  weight: number;
+  reps: number;
+}
+
+interface TrainingDayExercise {
+  id: number;
+  training_day_id: number;
+  exercise_id: number;
+  finished: boolean;
+}
+
+interface WorkoutProgram {
+  id: number;
+  type: string;
+  start_date: string;
+  end_date?: string;
+  finished: boolean;
+}
+
+interface ImportData {
+  sets: Set[];
+  exercises: Exercise[];
+  training_days: TrainingDay[];
+  training_day_exercises: TrainingDayExercise[];
+  workout_programs: WorkoutProgram[];
+}
