@@ -1,6 +1,6 @@
 import React from 'react';
 import {StyleSheet, View, useWindowDimensions} from 'react-native';
-import {Line, CartesianChart, Area, Bar} from 'victory-native';
+import {CartesianChart, Bar} from 'victory-native';
 import roboto from '../../assets/Roboto-Medium.ttf';
 import {LinearGradient, useFont, vec} from '@shopify/react-native-skia';
 

@@ -392,6 +392,30 @@ export async function deleteWorkoutProgram(workoutProgramId: number) {
   );
 }
 
+export async function getAllExercises(db: SQLiteDatabase) {
+  const [results] = await db.executeSql('SELECT name FROM exercises;');
+  return results?.rows.raw();
+}
+
+export async function fetchExerciseProgress(
+  db: SQLiteDatabase,
+  exerciseName: string,
+) {
+  const query = `
+    SELECT wp.start_date, tde.id as training_day_id, s.reps, s.weight, s.id
+    FROM sets s
+    INNER JOIN training_day_exercises tde ON s.training_day_exercise_id = tde.id
+    INNER JOIN exercises e ON tde.exercise_id = e.id
+    INNER JOIN training_days td ON tde.training_day_id = td.id
+    INNER JOIN workout_programs wp ON td.workout_program_id = wp.id
+    WHERE e.name = ?
+    ORDER BY wp.start_date ASC;
+  `;
+
+  const [results] = await db.executeSql(query, [exerciseName]);
+  return results?.rows.raw();
+}
+
 const dbPath = '/data/data/com.workoutwarden/databases/warden.db';
 
 export async function exportDatabase() {
