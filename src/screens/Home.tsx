@@ -22,15 +22,10 @@ const Home: React.FC<BaseProps> = ({route}) => {
         type: [DocumentPicker.types.allFiles],
       });
 
-      console.log(res);
-
       return res.uri;
     } catch (err) {
-      if (DocumentPicker.isCancel(err)) {
-        console.log('User canceled the picker');
-      } else {
-        throw err;
-      }
+      if (DocumentPicker.isCancel(err)) console.log('User canceled the picker');
+      else throw err;
     }
   }
 

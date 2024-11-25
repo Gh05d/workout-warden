@@ -1,6 +1,6 @@
 {
   "name": "workout-warden",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "author": {
     "name": "Gh05d"
@@ -16,8 +16,8 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.1.0",
     "@react-native-community/checkbox": "^0.5.17",
-    "@react-navigation/bottom-tabs": "^7.0.9",
-    "@react-navigation/material-top-tabs": "^7.0.9",
+    "@react-navigation/bottom-tabs": "^7.0.11",
+    "@react-navigation/material-top-tabs": "^7.0.11",
     "@react-navigation/native": "^7.0.6",
     "@shopify/react-native-skia": "^1.5.10",
     "react": "18.3.1",
@@ -31,7 +31,7 @@
     "react-native-safe-area-context": "^4.14.0",
     "react-native-screens": "^4.3.0",
     "react-native-sqlite-storage": "^6.0.1",
-    "react-native-tab-view": "^4.0.3",
+    "react-native-tab-view": "^4.0.4",
     "react-native-vector-icons": "^10.2.0",
     "react-native-webview": "^13.12.4",
     "react-native-youtube-iframe": "^2.3.0",

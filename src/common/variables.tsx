@@ -104,18 +104,173 @@ export const training = {
             sled: true,
             time: 300,
             finished: false,
-            sets: [{reps: 1, weight: 10}],
+            sets: [{reps: 1, weight: 20}],
             video: 'https://www.youtube.com/watch?v=XJxex3TnTWo',
           },
           {
             name: 'Poliquin Step Up',
             sets: [
-              {reps: 15, weight: 30},
-              {reps: 15, weight: 30},
-              {reps: 15, weight: 30},
+              {reps: 15, weight: 60},
+              {reps: 15, weight: 60},
+              {reps: 15, weight: 60},
             ],
             finished: false,
             video: 'https://www.youtube.com/watch?v=AbjXzX0CVhU',
+          },
+          {
+            name: 'Split Squad',
+            sets: [
+              {reps: 8, weight: 12},
+              {reps: 8, weight: 12},
+              {reps: 8, weight: 12},
+            ],
+            finished: false,
+            next: true,
+            video: 'https://www.youtube.com/watch?v=Gx7i66uftV4',
+          },
+          {
+            name: 'Seated Goodmorning',
+            sets: [
+              {reps: 10, weight: 20},
+              {reps: 10, weight: 20},
+              {reps: 10, weight: 20},
+            ],
+            finished: false,
+            video: 'https://www.youtube.com/watch?v=k2gpUHdRXS4',
+          },
+        ],
+      },
+      {
+        day: 'Chest Pressing Upper Body Day',
+        finished: false,
+        exercises: [
+          {
+            name: 'Chest Press',
+            sets: [
+              {reps: 8, weight: 18},
+              {reps: 8, weight: 18},
+              {reps: 8, weight: 18},
+            ],
+            finished: false,
+            hint: 'per hand',
+            video: 'https://www.youtube.com/watch?v=VmB1G1K7v94',
+            next: true,
+          },
+          {
+            name: 'Tibialis Raise',
+            sets: [
+              {reps: 20, weight: 30},
+              {reps: 20, weight: 30},
+              {reps: 20, weight: 30},
+            ],
+            finished: false,
+            video: 'https://www.youtube.com/watch?v=kIRvGGD21Zw',
+            next: true,
+          },
+          {
+            name: 'Pullup',
+            sets: [
+              {reps: 10, weight: 0},
+              {reps: 10, weight: 0},
+              {reps: 10, weight: 0},
+            ],
+            finished: false,
+            video: 'https://www.youtube.com/watch?v=eGo4IYlbE5g',
+            next: true,
+          },
+          {
+            name: 'Straight Leg Calf Raise',
+            sets: [
+              {reps: 10, weight: 30},
+              {reps: 10, weight: 30},
+              {reps: 10, weight: 30},
+            ],
+            finished: false,
+            video: 'https://www.youtube.com/watch?v=2SOQbnSJSbo',
+          },
+        ],
+      },
+      {
+        day: 'Mobility Day',
+        finished: false,
+        exercises: [
+          {
+            name: 'Pigeon Pushup',
+            sets: [
+              {reps: 20, weight: null},
+              {reps: 20, weight: null},
+              {reps: 20, weight: null},
+            ],
+            finished: false,
+            video: 'https://www.youtube.com/watch?v=qIe4xUIY5Mc',
+            next: true,
+          },
+          {
+            name: 'Butterfly Stretch',
+            sets: [
+              {reps: 20, weight: 16},
+              {reps: 20, weight: 16},
+              {reps: 20, weight: 16},
+            ],
+            finished: false,
+            video: 'https://www.youtube.com/watch?v=4J7kbCmPScQ',
+            next: true,
+          },
+          {
+            name: 'Jefferson Curl',
+            sets: [
+              {reps: 10, weight: 25},
+              {reps: 10, weight: 25},
+              {reps: 10, weight: 25},
+            ],
+            finished: false,
+            video: 'https://www.youtube.com/watch?v=nYS0R4c3qCA',
+            next: true,
+          },
+          {
+            name: 'Couch Stretch Lounge',
+            sets: [
+              {reps: 8, weight: null},
+              {reps: 8, weight: null},
+              {reps: 8, weight: null},
+            ],
+            finished: false,
+            video: 'https://www.youtube.com/watch?v=grrTL9jlrDc',
+            next: true,
+          },
+          {
+            name: 'Pullover',
+            sets: [
+              {reps: 10, weight: 20},
+              {reps: 10, weight: 20},
+              {reps: 10, weight: 20},
+            ],
+            finished: false,
+            video: 'https://www.youtube.com/watch?v=FK4rHfWKEac',
+          },
+        ],
+      },
+      {
+        day: 'Split Squat Leg Day',
+        finished: false,
+        exercises: [
+          {
+            name: 'Sled',
+            sled: true,
+            time: 300,
+            finished: false,
+            sets: [{reps: 1, weight: 20}],
+            video: 'https://www.youtube.com/watch?v=XJxex3TnTWo',
+          },
+          {
+            name: 'Split Squad',
+            sets: [
+              {reps: 10, weight: 12},
+              {reps: 10, weight: 12},
+              {reps: 10, weight: 12},
+            ],
+            finished: false,
+            video: 'https://www.youtube.com/watch?v=Gx7i66uftV4',
           },
           {
             name: 'Nordic',
@@ -136,7 +291,6 @@ export const training = {
               {reps: 20, weight: null},
             ],
             finished: false,
-
             video: 'https://www.youtube.com/watch?v=ltz0SOFKh64',
             next: true,
           },
@@ -148,175 +302,7 @@ export const training = {
               {reps: 8, weight: null},
             ],
             finished: false,
-
             video: 'https://www.youtube.com/watch?v=1a6nfG69c9g',
-          },
-        ],
-      },
-      {
-        day: 'Chest Pressing Upper Body Day',
-        finished: false,
-        exercises: [
-          {
-            name: 'Chest Press',
-            sets: [
-              {reps: 8, weight: 18},
-              {reps: 8, weight: 18},
-              {reps: 8, weight: 18},
-            ],
-            finished: false,
-
-            hint: 'per hand',
-            video: 'https://www.youtube.com/watch?v=VmB1G1K7v94',
-            next: true,
-          },
-          {
-            name: 'Tibialis Raise',
-            sets: [
-              {reps: 20, weight: 20},
-              {reps: 20, weight: 20},
-              {reps: 20, weight: 20},
-            ],
-            finished: false,
-
-            video: 'https://www.youtube.com/watch?v=kIRvGGD21Zw',
-            next: true,
-          },
-          {
-            name: 'Pullup',
-            sets: [
-              {reps: 0, weight: 5},
-              {reps: 0, weight: 5},
-              {reps: 0, weight: 5},
-            ],
-            finished: false,
-
-            video: 'https://www.youtube.com/watch?v=eGo4IYlbE5g',
-            next: true,
-          },
-          {
-            name: 'Straight Leg Calf Raise',
-            sets: [
-              {reps: 15, weight: 20},
-              {reps: 15, weight: 20},
-              {reps: 15, weight: 20},
-            ],
-            finished: false,
-
-            video: 'https://www.youtube.com/watch?v=2SOQbnSJSbo',
-          },
-        ],
-      },
-      {
-        day: 'Mobility Day',
-        finished: false,
-        exercises: [
-          {
-            name: 'Pigeon Pushup',
-            sets: [
-              {reps: 20, weight: null},
-              {reps: 20, weight: null},
-              {reps: 20, weight: null},
-            ],
-            finished: false,
-
-            video: 'https://www.youtube.com/watch?v=qIe4xUIY5Mc',
-            next: true,
-          },
-          {
-            name: 'Butterfly Stretch',
-            sets: [
-              {reps: 20, weight: 10},
-              {reps: 20, weight: 10},
-              {reps: 20, weight: 10},
-            ],
-            finished: false,
-
-            video: 'https://www.youtube.com/watch?v=4J7kbCmPScQ',
-            next: true,
-          },
-          {
-            name: 'Jefferson Curl',
-            sets: [
-              {reps: 15, weight: 5},
-              {reps: 15, weight: 5},
-              {reps: 15, weight: 5},
-            ],
-            finished: false,
-
-            video: 'https://www.youtube.com/watch?v=nYS0R4c3qCA',
-            next: true,
-          },
-          {
-            name: 'Reverse Nordic',
-            sets: [
-              {reps: 8, weight: null},
-              {reps: 8, weight: null},
-              {reps: 8, weight: null},
-            ],
-            finished: false,
-
-            video: 'https://www.youtube.com/watch?v=1a6nfG69c9g',
-            next: true,
-          },
-          {
-            name: 'Pullover',
-            sets: [
-              {reps: 10, weight: 12},
-              {reps: 10, weight: 12},
-              {reps: 10, weight: 12},
-            ],
-            finished: false,
-
-            video: 'https://www.youtube.com/watch?v=FK4rHfWKEac',
-          },
-        ],
-      },
-      {
-        day: 'Split Squat Leg Day',
-        finished: false,
-        exercises: [
-          {
-            name: 'Sled',
-            sled: true,
-            time: 300,
-            finished: false,
-            sets: [{reps: 1, weight: 10}],
-            video: 'https://www.youtube.com/watch?v=XJxex3TnTWo',
-          },
-          {
-            name: 'Split Squad',
-            sets: [
-              {reps: 8, weight: 12},
-              {reps: 8, weight: 12},
-              {reps: 8, weight: 12},
-            ],
-            finished: false,
-
-            video: 'https://www.youtube.com/watch?v=Gx7i66uftV4',
-          },
-          {
-            name: 'Seated Goodmorning',
-            sets: [
-              {reps: 10, weight: 20},
-              {reps: 10, weight: 20},
-              {reps: 10, weight: 20},
-            ],
-            finished: false,
-
-            video: 'https://www.youtube.com/watch?v=k2gpUHdRXS4',
-            next: true,
-          },
-          {
-            name: 'VMO Squat',
-            sets: [
-              {reps: 20, weight: 10},
-              {reps: 20, weight: 10},
-              {reps: 20, weight: 10},
-            ],
-            finished: false,
-
-            video: 'https://www.youtube.com/watch?v=TnOyAnu5xhE',
           },
         ],
       },
@@ -327,36 +313,33 @@ export const training = {
           {
             name: 'Shoulder Press',
             sets: [
-              {reps: 8, weight: 16},
-              {reps: 8, weight: 16},
-              {reps: 8, weight: 16},
+              {reps: 10, weight: 16},
+              {reps: 10, weight: 16},
+              {reps: 10, weight: 16},
             ],
             finished: false,
-
             video: 'https://www.youtube.com/watch?v=qEwKCR5JCog',
             next: true,
           },
           {
             name: 'Tibialis Raise',
             sets: [
-              {reps: 20, weight: 20},
-              {reps: 20, weight: 20},
-              {reps: 20, weight: 20},
+              {reps: 20, weight: 30},
+              {reps: 20, weight: 30},
+              {reps: 20, weight: 30},
             ],
             finished: false,
-
             video: 'https://www.youtube.com/watch?v=kIRvGGD21Zw',
             next: true,
           },
           {
             name: 'External Rotation',
             sets: [
-              {reps: 8, weight: 4},
-              {reps: 8, weight: 4},
-              {reps: 8, weight: 4},
+              {reps: 8, weight: 6},
+              {reps: 8, weight: 6},
+              {reps: 8, weight: 6},
             ],
             finished: false,
-
             video: 'https://www.youtube.com/watch?v=mbdDt0c9bZY',
             next: true,
           },
@@ -368,19 +351,17 @@ export const training = {
               {reps: 15, weight: 20},
             ],
             finished: false,
-
             video: 'https://www.youtube.com/watch?v=NIK_hmryfDg',
             next: true,
           },
           {
             name: 'Neck Flexion',
             sets: [
-              {reps: 10, weight: 10},
-              {reps: 10, weight: 10},
-              {reps: 10, weight: 10},
+              {reps: 10, weight: 30},
+              {reps: 10, weight: 30},
+              {reps: 10, weight: 30},
             ],
             finished: false,
-
             video: 'https://www.youtube.com/watch?v=BCwM-5Wn6Xg',
           },
         ],
@@ -416,40 +397,25 @@ export const training = {
             video: 'https://www.youtube.com/watch?v=yuvRE6PsvJw',
           },
           {
-            name: 'Back Extension',
+            name: 'Split Squad',
             sets: [
-              {reps: 8, weight: 15},
-              {reps: 8, weight: 15},
-              {reps: 8, weight: 15},
+              {reps: 8, weight: 12},
+              {reps: 8, weight: 12},
+              {reps: 8, weight: 12},
             ],
             finished: false,
-
-            hint: 'Single Leg',
-            video: 'https://www.youtube.com/watch?v=ph3pddpKzzw',
             next: true,
+            video: 'https://www.youtube.com/watch?v=Gx7i66uftV4',
           },
           {
-            name: 'Hip Flexors',
+            name: 'Romanian Deadlift',
             sets: [
-              {reps: 20, weight: null},
-              {reps: 20, weight: null},
-              {reps: 20, weight: null},
+              {reps: 12, weight: 50},
+              {reps: 12, weight: 50},
+              {reps: 12, weight: 50},
             ],
             finished: false,
-
-            video: 'https://www.youtube.com/watch?v=ltz0SOFKh64',
-            next: true,
-          },
-          {
-            name: 'Reverse Nordic',
-            sets: [
-              {reps: 8, weight: null},
-              {reps: 8, weight: null},
-              {reps: 8, weight: null},
-            ],
-            finished: false,
-
-            video: 'https://www.youtube.com/watch?v=1a6nfG69c9g',
+            video: 'https://www.youtube.com/watch?v=7j-2w4-P14I',
           },
         ],
       },
@@ -465,19 +431,17 @@ export const training = {
               {reps: 10, weight: 10},
             ],
             finished: false,
-
             video: 'https://www.youtube.com/watch?v=dX_nSOOJIsE',
             next: true,
           },
           {
             name: 'Tibialis Raise',
             sets: [
-              {reps: 20, weight: 20},
-              {reps: 20, weight: 20},
-              {reps: 20, weight: 20},
+              {reps: 20, weight: 30},
+              {reps: 20, weight: 30},
+              {reps: 20, weight: 30},
             ],
             finished: false,
-
             video: 'https://www.youtube.com/watch?v=kIRvGGD21Zw',
             next: true,
           },
@@ -489,19 +453,17 @@ export const training = {
               {reps: 8, weight: 8},
             ],
             finished: false,
-
             video: 'https://www.youtube.com/watch?v=UZ0SIUzOq88',
             next: true,
           },
           {
             name: 'Straight Leg Calf Raise',
             sets: [
-              {reps: 15, weight: 20},
-              {reps: 15, weight: 20},
-              {reps: 15, weight: 20},
+              {reps: 10, weight: 20},
+              {reps: 10, weight: 20},
+              {reps: 10, weight: 20},
             ],
             finished: false,
-
             video: 'https://www.youtube.com/watch?v=2SOQbnSJSbo',
           },
         ],
@@ -518,43 +480,40 @@ export const training = {
               {reps: 20, weight: null},
             ],
             finished: false,
-
             video: 'https://www.youtube.com/watch?v=qIe4xUIY5Mc',
             next: true,
           },
           {
             name: 'Pancake',
             sets: [
-              {reps: 20, weight: 0},
-              {reps: 20, weight: 0},
-              {reps: 20, weight: 0},
+              {reps: 20, weight: 30},
+              {reps: 20, weight: 30},
+              {reps: 20, weight: 30},
             ],
             finished: false,
-
             video: 'https://www.youtube.com/watch?v=EKSyDNx4atY',
             next: true,
           },
           {
             name: 'QL Extension',
             sets: [
-              {reps: 10, weight: 0},
-              {reps: 10, weight: 0},
-              {reps: 10, weight: 0},
+              {reps: 12, weight: 0},
+              {reps: 12, weight: 0},
+              {reps: 12, weight: 0},
             ],
             finished: false,
             hint: 'per side',
             video: 'https://www.youtube.com/watch?v=YzomuSc93SM',
-            next: true,
           },
           {
-            name: 'Reverse Nordic',
+            name: 'Elephant Walk',
             sets: [
               {reps: 8, weight: null},
               {reps: 8, weight: null},
               {reps: 8, weight: null},
             ],
             finished: false,
-            video: 'https://www.youtube.com/watch?v=1a6nfG69c9g',
+            video: 'https://www.youtube.com/watch?v=qqMi-hJjMBk',
             next: true,
           },
           {
@@ -582,35 +541,47 @@ export const training = {
             video: 'https://www.youtube.com/watch?v=XJxex3TnTWo',
           },
           {
-            name: 'Split Squad',
-            sets: [
-              {reps: 8, weight: 12},
-              {reps: 8, weight: 12},
-              {reps: 8, weight: 12},
-            ],
-            finished: false,
-            video: 'https://www.youtube.com/watch?v=Gx7i66uftV4',
-          },
-          {
-            name: 'Romanian Deadlift',
-            sets: [
-              {reps: 12, weight: 50},
-              {reps: 12, weight: 50},
-              {reps: 12, weight: 50},
-            ],
-            finished: false,
-            video: 'https://www.youtube.com/watch?v=7j-2w4-P14I',
-            next: true,
-          },
-          {
             name: 'VMO Squat',
             sets: [
-              {reps: 20, weight: 10},
-              {reps: 20, weight: 10},
-              {reps: 20, weight: 10},
+              {reps: 10, weight: 10},
+              {reps: 10, weight: 10},
+              {reps: 10, weight: 10},
             ],
             finished: false,
             video: 'https://www.youtube.com/watch?v=TnOyAnu5xhE',
+          },
+          {
+            name: 'Back Extension',
+            sets: [
+              {reps: 8, weight: 15},
+              {reps: 8, weight: 15},
+              {reps: 8, weight: 15},
+            ],
+            finished: false,
+            hint: 'Single Leg',
+            video: 'https://www.youtube.com/watch?v=ph3pddpKzzw',
+            next: true,
+          },
+          {
+            name: 'Hip Flexors',
+            sets: [
+              {reps: 20, weight: null},
+              {reps: 20, weight: null},
+              {reps: 20, weight: null},
+            ],
+            finished: false,
+            video: 'https://www.youtube.com/watch?v=ltz0SOFKh64',
+            next: true,
+          },
+          {
+            name: 'Reverse Nordic',
+            sets: [
+              {reps: 8, weight: null},
+              {reps: 8, weight: null},
+              {reps: 8, weight: null},
+            ],
+            finished: false,
+            video: 'https://www.youtube.com/watch?v=1a6nfG69c9g',
           },
         ],
       },

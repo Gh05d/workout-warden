@@ -29,6 +29,20 @@ export const dropAllTables = async () => {
 export const initDB = async () => {
   const db = await getDBConnection();
 
+  await db
+    .executeSql(
+      `
+    ALTER TABLE exercises ADD COLUMN next BOOLEAN DEFAULT 0;
+  `,
+    )
+    .catch(error => {
+      if (error.message.includes('duplicate column name')) {
+        console.log('Column "next" already exists, skipping...');
+      } else {
+        console.error('Error adding new column', error);
+      }
+    });
+
   const queries = [
     `
     CREATE TABLE IF NOT EXISTS sets (
@@ -46,6 +60,7 @@ export const initDB = async () => {
         hint TEXT,
         sled BOOLEAN DEFAULT 0,
         time INTEGER, -- NULL if not applicable
+        next BOOLEAN DEFAULT 0,
         video TEXT
     );`,
     `
@@ -116,15 +131,17 @@ async function createExercises(db: SQLiteDatabase) {
   // Now insert each unique exercise into the database
   for (const exercise of uniqueExercises.values()) {
     const query = `
-              INSERT INTO exercises (name, hint, sled, time, video, sets)
-              VALUES (?, ?, ?, ?, ?, ?);
+              INSERT INTO exercises (name, hint, sled, time, video, next, sets)
+              VALUES (?, ?, ?, ?, ?, ?, ?);
             `;
+
     await db.executeSql(query, [
       exercise.name,
       exercise.hint || null,
       exercise.sled ? 1 : 0,
       exercise.time || null,
       exercise.video,
+      exercise.next ? 1 : 0,
       exercise.sets?.length || 1,
     ]);
   }
@@ -143,7 +160,7 @@ export async function insertWorkoutProgram(
     [type, 0],
   );
 
-  const workoutProgramID = programResult.insertId;
+  const workoutProgramID = programResult?.insertId;
 
   // Fetch the last workout program of the same type
   const [lastProgramResult] = await db.executeSql(
@@ -156,28 +173,75 @@ export async function insertWorkoutProgram(
     [type, workoutProgramID],
   );
 
-  const [lastWorkoutProgram] = lastProgramResult.rows.raw();
+  const lastWorkoutProgram =
+    lastProgramResult.rows.length > 0 ? lastProgramResult.rows.item(0) : null;
 
-  // If there is a previous workout program of the same type, use its sessions as a template
+  // Use training object as the template for new sessions
+  let sessionsToInsert = training[type].sessions;
+
   if (lastWorkoutProgram) {
+    // Fetch sessions from the last workout program
     const lastProgramSessions = await fetchTrainingDays(
       db,
       lastWorkoutProgram.id,
     );
 
-    for (const session of lastProgramSessions) {
-      const lastSessionExercises = await fetchExercisesForTrainingDay(
-        db,
-        session.id,
-      );
-      await insertTrainingDays(db, workoutProgramID, [
-        {...session, exercises: lastSessionExercises},
-      ]);
-    }
-  } else {
-    // If there's no previous program of the same type, use the default sessions from the training object
-    await insertTrainingDays(db, workoutProgramID, training[type].sessions);
+    // Map the sessions from the training object while updating weights
+    sessionsToInsert = await Promise.all(
+      training[type].sessions.map(async (newSession, index) => {
+        const lastSession = lastProgramSessions[index];
+
+        if (lastSession) {
+          // Fetch exercises for this specific training day in the last workout program
+          const lastSessionExercises = await fetchExercisesForTrainingDay(
+            db,
+            lastSession.id,
+          );
+
+          // Update exercises in the new session using the fetched data from the previous session
+          const updatedExercises = newSession.exercises.map(exercise => {
+            const lastExercise = lastSessionExercises.find(
+              ex => ex.name === exercise.name,
+            );
+
+            if (lastExercise) {
+              // Map over sets to update weights where applicable
+              const updatedSets = exercise.sets.map((set, setIndex) => {
+                if (
+                  lastExercise.sets &&
+                  lastExercise.sets[setIndex] &&
+                  lastExercise.sets[setIndex].weight !== undefined &&
+                  lastExercise.sets[setIndex].weight !== null
+                ) {
+                  return {
+                    ...set,
+                    weight: lastExercise.sets[setIndex].weight,
+                  };
+                }
+                return set; // If no previous value, return original set
+              });
+
+              return {
+                ...exercise,
+                sets: updatedSets,
+              };
+            }
+            return exercise;
+          });
+
+          return {
+            ...newSession,
+            exercises: updatedExercises,
+          };
+        }
+
+        return newSession; // If no last session, keep the original session from training
+      }),
+    );
   }
+
+  // Insert training days with the updated sessions
+  await insertTrainingDays(db, workoutProgramID, sessionsToInsert);
 }
 
 export async function insertTrainingDays(
@@ -193,6 +257,7 @@ export async function insertTrainingDays(
     const [result] = await db.executeSql(query, [workoutProgramId, day.day, 0]);
 
     const trainingDayID = result.insertId;
+
     await insertExercises(db, trainingDayID, day.exercises);
   }
 }
@@ -285,6 +350,8 @@ export async function fetchWeekByID(
     console.log(`Workout program with ID ${workoutProgramID} not found.`);
     return null;
   }
+
+  console.log(workoutPrograms);
 
   const [program] = workoutPrograms;
 

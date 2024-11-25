@@ -13,26 +13,30 @@ import {colors} from '../common/variables';
 interface Props extends Week {
   setWeeks: (state: Week[]) => Week[];
   setError: (error: Error) => void;
+  setUpdating: (status: boolean) => void;
 }
 
 const WeekAccordion: React.FC<Props> = props => {
   async function deleteWeek(id: number) {
     try {
+      await props.setUpdating(true);
       await deleteWorkoutProgram(id);
       props.setWeeks((state: Week[]) => state.filter(item => item.id != id));
     } catch (err) {
       props.setError(err as Error);
+    } finally {
+      props.setUpdating(false);
     }
   }
 
   return (
     <Accordion
-      style={props.finished && {backgroundColor: colors.secondary}}
+      style={!!props.finished && {backgroundColor: colors.secondary}}
       title={`Woche ${props.id} ${props.type} ${displayDate(
         props.start_date,
         props.end_date,
       )}`}
-      closed={props.finished}
+      closed={props.finished ? '1' : '0'}
       controlIcon="expand-more">
       <View
         style={[
@@ -80,7 +84,7 @@ const WeekAccordion: React.FC<Props> = props => {
             style={[
               row,
               styles.header,
-              session.finished && {backgroundColor: colors.secondary},
+              !!session.finished && {backgroundColor: colors.secondary},
             ]}>
             <AppText style={{color: '#fff'}} bold>
               {session.day}

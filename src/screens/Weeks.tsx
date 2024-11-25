@@ -49,7 +49,12 @@ const Weeks: React.FC<BaseProps> = ({}) => {
 
   const renderItem = React.useCallback(
     ({item}: {item: Week}) => (
-      <WeekAccordion {...item} setWeeks={setWeeks} setError={setError} />
+      <WeekAccordion
+        {...item}
+        setWeeks={setWeeks}
+        setUpdating={setUpdating}
+        setError={setError}
+      />
     ),
     [],
   );

@@ -16,11 +16,7 @@ interface Props {
  *
  * @component
  */
-const LoadingModal: React.FC<Props> = ({
-  loading,
-  testID,
-  text = 'Logging in',
-}) => (
+const LoadingModal: React.FC<Props> = ({loading, testID, text = 'Loading'}) => (
   <Modal animationType="fade" visible={loading} transparent>
     <View style={styles.overlay} />
     <View style={styles.outerContainer}>

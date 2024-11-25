@@ -50,12 +50,12 @@ interface Exercise {
   id: number;
   finished: 0 | 1;
   name: string;
-  sled?: boolean;
+  sled?: 0 | 1;
   time?: number;
   sets: ExerciseSet[];
   hint?: string;
   video: string;
-  next?: boolean;
+  next?: 0 | 1;
   training_day_exercise_id: number;
 }
 

@@ -1,13 +1,16 @@
 import React from 'react';
-import {Button, ScrollView, StyleSheet} from 'react-native';
+import {Button, ScrollView, StyleSheet, View} from 'react-native';
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import {useFocusEffect} from '@react-navigation/native';
 
 import Loading from '../components/Loading';
 import ErrorComp from '../components/Error';
 import Exercise from '../components/Exercise';
+import LoadingModal from '../components/LoadingModal';
+import Toast from '../components/Toast';
 
 import {colors} from '../common/variables';
 import {displayDate} from '../common/functions';
-import Toast from '../components/Toast';
 import {
   fetchWeekByID,
   fetchWeeks,
@@ -15,8 +18,6 @@ import {
   getNewWorkoutProgramType,
   insertWorkoutProgram,
 } from '../common/databaseService';
-import {useFocusEffect} from '@react-navigation/native';
-import LoadingModal from '../components/LoadingModal';
 
 interface RouteParams {
   weekID: number;
@@ -41,9 +42,9 @@ const Session: React.FC<BaseProps> = ({navigation, route}) => {
         const db = await getDBConnection();
         const week = await fetchWeekByID(db, currentWeekID);
 
-        if (!week.finished) {
+        if (!week?.finished) {
           for (const trainingDay of week.sessions) {
-            if (!trainingDay.finished) return;
+            if (!trainingDay?.finished) return;
           }
 
           const query = `UPDATE workout_programs SET finished = 1 WHERE id = ?;`;
@@ -122,7 +123,7 @@ const Session: React.FC<BaseProps> = ({navigation, route}) => {
       const week = await fetchWeekByID(db, currentWeekID);
 
       week?.sessions[day]?.exercises?.forEach((exercise: Exercise) => {
-        if (!exercise.finished) throw Error('There are still exercises open');
+        if (!exercise?.finished) throw Error('There are still exercises open');
       });
 
       const sessionID = trainingWeek?.sessions[day]?.id;
@@ -131,7 +132,7 @@ const Session: React.FC<BaseProps> = ({navigation, route}) => {
 
       setTrainingWeek(state => {
         const sessionsCopy = [...state!.sessions];
-        sessionsCopy[day] = {...sessionsCopy[day], finished: true};
+        sessionsCopy[day] = {...sessionsCopy[day], finished: 1};
 
         return {...state, sessions: sessionsCopy};
       });
@@ -152,18 +153,25 @@ const Session: React.FC<BaseProps> = ({navigation, route}) => {
       style={styles.root}
       contentContainerStyle={{paddingBottom: 30, gap: 30}}>
       {trainingWeek?.sessions[day].exercises?.map(exercise => (
-        <Exercise key={exercise.id} {...exercise} />
+        <View style={{alignItems: 'center'}} key={exercise.id}>
+          <Exercise {...exercise} />
+          {!!exercise.next && (
+            <View style={{marginHorizontal: 10, marginTop: 20}}>
+              <MaterialIcons name="repeat" size={30} color={colors.primary} />
+            </View>
+          )}
+        </View>
       ))}
 
       <Button
         color={colors.primary}
         onPress={handleFinish}
         title={
-          trainingWeek?.sessions[day].finished ? 'Update day' : 'Finish day'
+          trainingWeek?.sessions[day]?.finished ? 'Update day' : 'Finish day'
         }
       />
 
-      {updating && <LoadingModal text="" loading={updating} />}
+      {updating && <LoadingModal loading={updating} />}
 
       {!!finishError && (
         <Toast
