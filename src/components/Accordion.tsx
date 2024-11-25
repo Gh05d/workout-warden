@@ -44,14 +44,6 @@ const Accordion: React.FC<Props> = props => {
   const animatedController = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
-    if (Platform.OS === 'android') {
-      if (UIManager.setLayoutAnimationEnabledExperimental) {
-        UIManager.setLayoutAnimationEnabledExperimental(true);
-      }
-    }
-  }, []);
-
-  React.useEffect(() => {
     toggleAccordion(!props.closed);
   }, [props.closed]);
 

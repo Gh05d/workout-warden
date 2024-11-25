@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  StyleSheet,
-  Pressable,
-  Animated,
-  NativeModules,
-  Dimensions,
-  View,
-} from 'react-native';
+import {StyleSheet, Pressable, Animated, Dimensions, View} from 'react-native';
 
 import AppText from './AppText';
 import {colors} from '../common/variables';
@@ -17,11 +10,6 @@ interface ToastProps {
   onClose?: () => void;
   testId?: string | 'errorMsg';
 }
-
-const {UIManager} = NativeModules;
-
-UIManager.setLayoutAnimationEnabledExperimental &&
-  UIManager.setLayoutAnimationEnabledExperimental(true);
 
 const animationConfig = {toValue: 1, duration: 300, useNativeDriver: true};
 
