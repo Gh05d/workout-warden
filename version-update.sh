@@ -29,4 +29,16 @@ if ! cd android && ./gradlew assembleRelease; then
 fi
 cd ..
 
-echo "Successfully updated version and created production build with version type: $VERSION_TYPE"
+# Step 4: Commit version changes and push to repository
+git add package.json android/app/build.gradle
+if ! git commit -m "Updated Android version to $VERSION_TYPE"; then
+  echo "Failed to commit version changes"
+  exit 1
+fi
+
+if ! git push; then
+  echo "Failed to push changes to remote repository"
+  exit 1
+fi
+
+echo "Successfully updated version, committed changes, and created production build with version type: $VERSION_TYPE"
