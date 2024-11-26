@@ -1,19 +1,20 @@
 import React from 'react';
 import {StyleSheet, View, FlatList, Button, RefreshControl} from 'react-native';
 
-import {colors} from '../common/variables';
 import AppText from '../components/AppText';
+import Toast from '../components/Toast';
+import LoadingModal from '../components/LoadingModal';
+import Error from '../components/Error';
+import Loading from '../components/Loading';
+import WeekAccordion from '../components/WeekAccordion';
+
+import {colors} from '../common/variables';
 import {
   fetchWeeks,
   getDBConnection,
   getNewWorkoutProgramType,
   insertWorkoutProgram,
 } from '../common/databaseService';
-import Toast from '../components/Toast';
-import LoadingModal from '../components/LoadingModal';
-import Error from '../components/Error';
-import Loading from '../components/Loading';
-import WeekAccordion from '../components/WeekAccordion';
 
 const Weeks: React.FC<BaseProps> = ({}) => {
   const [weeks, setWeeks] = React.useState<Week[]>([]);
