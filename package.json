@@ -1,6 +1,6 @@
 {
   "name": "workout-warden",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "author": {
     "name": "Gh05d"
@@ -10,7 +10,9 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "USE_CONSOLE=true npx react-native start --reset-cache",
-    "create-prod:android": "cd android && ./gradlew assembleRelease",
+    "build-prod:android": "cd android && ./gradlew assembleRelease",
+    "update-version:android": "node update-android-version.js",
+    "create-prod:android": "npm version patch && npm run update-version:android",
     "test": "jest"
   },
   "dependencies": {
