@@ -41,12 +41,19 @@ const WeekAccordion: React.FC<Props> = props => {
       <View
         style={[
           styles.row,
-          {
-            marginBottom: 32,
-            marginTop: 16,
-            justifyContent: 'space-between',
-          },
+          {marginBottom: 32, marginTop: 16, justifyContent: 'flex-end'},
         ]}>
+        <AppText style={{color: props.finished ? colors.primary : '#ddd'}}>
+          {props.finished ? 'Finished' : 'Open'}
+        </AppText>
+
+        <MaterialIcons
+          style={styles.icon}
+          name={props.finished ? 'done' : 'timeline'}
+          color={props.finished ? colors.primary : '#ddd'}
+          size={20}
+        />
+
         <Pressable
           onPress={() =>
             Alert.alert(
@@ -65,18 +72,6 @@ const WeekAccordion: React.FC<Props> = props => {
             size={20}
           />
         </Pressable>
-
-        <View style={{flexDirection: 'row', gap: 8}}>
-          <AppText style={{color: props.finished ? colors.primary : '#ddd'}}>
-            {props.finished ? 'Finished' : 'Open'}
-          </AppText>
-          <MaterialIcons
-            style={styles.icon}
-            name={props.finished ? 'done' : 'timeline'}
-            color={props.finished ? colors.primary : '#ddd'}
-            size={20}
-          />
-        </View>
       </View>
       {props.sessions.map(session => (
         <View key={session.id} style={[styles.day]}>

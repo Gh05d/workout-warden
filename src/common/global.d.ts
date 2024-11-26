@@ -45,6 +45,8 @@ interface ExerciseSet {
   training_day_exercise_id: number;
 }
 
+type TrainingType = 'A' | 'B';
+
 // Define a type for the exercises
 interface Exercise {
   id: number;
@@ -96,6 +98,16 @@ interface WorkoutProgram {
   start_date: string;
   end_date?: string;
   finished: boolean;
+}
+
+interface TrainingData {
+  [key in TrainingType]: {
+    type: string;
+    startDate: number;
+    endDate: Date;
+    finished: boolean;
+    sessions: Session[];
+  };
 }
 
 interface ImportData {

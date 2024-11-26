@@ -4,6 +4,11 @@ import RNFS from 'react-native-fs';
 
 import {training} from './variables';
 
+const exerciseQueryString = `
+  INSERT INTO exercises (name, hint, sled, time, video, next, sets)
+  VALUES (?, ?, ?, ?, ?, ?, ?);
+`;
+
 export const getDBConnection = async () => {
   return openDatabase({name: 'warden.db', location: 'default'});
 };
@@ -104,6 +109,7 @@ export const initDB = async () => {
   const rows = res.rows.raw();
 
   if (!rows.length) await createExercises(db);
+  else await addMissingExercises(db);
 };
 
 async function createExercises(db: SQLiteDatabase) {
@@ -130,20 +136,54 @@ async function createExercises(db: SQLiteDatabase) {
 
   // Now insert each unique exercise into the database
   for (const exercise of uniqueExercises.values()) {
-    const query = `
-              INSERT INTO exercises (name, hint, sled, time, video, next, sets)
-              VALUES (?, ?, ?, ?, ?, ?, ?);
-            `;
+    await createExercise({exercise, db});
+  }
+}
 
-    await db.executeSql(query, [
-      exercise.name,
-      exercise.hint || null,
-      exercise.sled ? 1 : 0,
-      exercise.time || null,
-      exercise.video,
-      exercise.next ? 1 : 0,
-      exercise.sets?.length || 1,
-    ]);
+async function createExercise({
+  db,
+  exercise,
+}: {
+  db: SQLiteDatabase;
+  exercise: Exercise;
+}) {
+  await db.executeSql(exerciseQueryString, [
+    exercise.name,
+    exercise.hint || null,
+    exercise.sled ? 1 : 0,
+    exercise.time || null,
+    exercise.video,
+    exercise.next ? 1 : 0,
+    exercise.sets?.length || 1,
+  ]);
+}
+
+async function addMissingExercises(db: SQLiteDatabase) {
+  const uniqueExercises = new Map();
+
+  // Collect all exercises from training A and B
+  ['A', 'B'].forEach((type: TrainingType) => {
+    training[type].sessions.forEach((session: TrainingDay) => {
+      session.exercises?.forEach(exercise => {
+        if (!uniqueExercises.has(exercise.name)) {
+          uniqueExercises.set(exercise.name, exercise);
+        }
+      });
+    });
+  });
+
+  for (const exercise of uniqueExercises.values()) {
+    const queryCheck = `
+      SELECT COUNT(*) as count FROM exercises WHERE name = ?;
+    `;
+
+    const [checkResult] = await db.executeSql(queryCheck, [exercise.name]);
+    const {count} = checkResult.rows.item(0);
+
+    if (count === 0) {
+      // Insert exercise if it doesn't exist
+      await createExercise({exercise, db});
+    }
   }
 }
 
