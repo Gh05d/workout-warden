@@ -23,7 +23,8 @@ if ! node update-android-version.js; then
 fi
 
 # Step 3: Build Android release
-if ! cd android && ./gradlew assembleRelease; then
+cd android
+if ! ./gradlew assembleRelease; then
   echo "Failed to build Android release"
   exit 1
 fi
