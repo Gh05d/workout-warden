@@ -8,12 +8,12 @@ import {
   StyleSheet,
   Platform,
   PressableAndroidRippleConfig,
+  Switch,
 } from 'react-native';
-import CheckBox, {CheckBoxProps} from '@react-native-community/checkbox';
 
 import AppText from './AppText';
 
-interface Props extends CheckBoxProps {
+interface Props {
   disabled?: boolean;
   value: boolean;
   onValueChange: Dispatch<SetStateAction<boolean>>;
@@ -36,27 +36,27 @@ const AppCheckBox: React.FC<Props> = props => {
     textStyle,
     android_ripple,
     accessibilityLabel,
-    ...checkBoxProps
+    value,
+    onValueChange,
+    disabled,
   } = props;
 
   return (
     <View style={[containerStyle, styles.checkboxContainer]}>
-      <CheckBox
+      <Switch
         accessibilityLabel={accessibilityLabel || text}
-        tintColors={{true: color, false: color}}
-        onCheckColor={color}
-        onTintColor={color}
-        boxType="square"
-        {...checkBoxProps}
+        value={value}
+        onValueChange={onValueChange}
+        thumbColor={value ? color : '#f4f3f4'}
+        trackColor={{false: '#767577', true: color}}
+        disabled={disabled}
       />
 
       <Pressable
         style={[pressableStyle]}
-        disabled={props.disabled}
+        disabled={disabled}
         android_ripple={android_ripple}
-        onPress={() =>
-          props.onValueChange((state: boolean) => (state = !state))
-        }>
+        onPress={() => onValueChange(!value)}>
         {text && (
           <AppText style={[textStyle, styles.checkboxText]}>{text}</AppText>
         )}
@@ -72,8 +72,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   checkboxText: {
-    fontSize: Platform.OS == 'ios' ? 15 : 13,
-    marginLeft: Platform.OS == 'ios' ? 16 : 0,
+    fontSize: Platform.OS === 'ios' ? 15 : 13,
+    marginLeft: Platform.OS === 'ios' ? 16 : 0,
   },
 });
 

@@ -5,8 +5,6 @@ import {
   View,
   Animated,
   LayoutAnimation,
-  Platform,
-  UIManager,
   StyleProp,
   ViewStyle,
 } from 'react-native';
@@ -19,7 +17,7 @@ interface Props {
   title?: string;
   iconSize?: number;
   iconColor?: string;
-  closed?: '1' | '0';
+  closed?: boolean;
   icon?: string;
   controlIcon?: string;
   style?: StyleProp<ViewStyle>;

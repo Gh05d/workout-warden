@@ -399,10 +399,7 @@ export async function fetchWeekByID(
     return null;
   }
 
-  console.log(workoutPrograms);
-
   const [program] = workoutPrograms;
-
   program.sessions = await fetchTrainingDays(db, program.id);
 
   for (const session of program.sessions) {

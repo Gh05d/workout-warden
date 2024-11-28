@@ -65,9 +65,9 @@ const Exercise: React.FC<Exercise> = exercise => {
       const db = await getDBConnection();
 
       const query = `
-      UPDATE training_day_exercises SET finished = ?
-      WHERE id = ?;
-    `;
+        UPDATE training_day_exercises SET finished = ?
+        WHERE id = ?;
+      `;
       await db.executeSql(query, [
         value ? 1 : 0,
         exercise.training_day_exercise_id,
