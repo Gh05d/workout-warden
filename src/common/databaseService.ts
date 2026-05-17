@@ -1,521 +1,138 @@
-import {Alert} from 'react-native';
 import {SQLiteDatabase, openDatabase} from 'react-native-sqlite-storage';
 import RNFS from '@dr.pogodin/react-native-fs';
+import {Alert} from 'react-native';
 
-import {surfTraining, training} from './variables';
-import {
-  migrateExercisesTable,
-  migrateTrainingDayExercisesTable,
-  migrateTrainingDaysTable,
-  migrateWorkoutProgramsTable,
-} from './migrations';
+const DB_NAME = 'warden.db';
+const DB_PATH_ANDROID = '/data/data/com.workoutwarden/databases/warden.db';
 
-const exerciseQueryString = `
-  INSERT INTO exercises (name, hint, sled, time, video, next, sets)
-  VALUES (?, ?, ?, ?, ?, ?, ?);
-`;
+export async function getDBConnection(): Promise<SQLiteDatabase> {
+  const db = await openDatabase({name: DB_NAME, location: 'default'});
+  await db.executeSql('PRAGMA foreign_keys = ON;');
+  return db;
+}
 
-export const getDBConnection = async () => {
-  return openDatabase({name: 'warden.db', location: 'default'});
-};
+const SCHEMA: string[] = [
+  `CREATE TABLE IF NOT EXISTS plans (
+     id          INTEGER PRIMARY KEY AUTOINCREMENT,
+     slug        TEXT NOT NULL UNIQUE,
+     name        TEXT NOT NULL,
+     description TEXT,
+     created_at  DATETIME DEFAULT (datetime('now'))
+   )`,
+  `CREATE TABLE IF NOT EXISTS session_templates (
+     id   INTEGER PRIMARY KEY AUTOINCREMENT,
+     slug TEXT NOT NULL UNIQUE,
+     name TEXT NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS plan_days (
+     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+     plan_id             INTEGER NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+     session_template_id INTEGER NOT NULL REFERENCES session_templates(id),
+     day_index           INTEGER NOT NULL,
+     weekday_label       TEXT,
+     UNIQUE(plan_id, day_index)
+   )`,
+  `CREATE TABLE IF NOT EXISTS exercises (
+     id    INTEGER PRIMARY KEY AUTOINCREMENT,
+     slug  TEXT NOT NULL UNIQUE,
+     name  TEXT NOT NULL,
+     video TEXT
+   )`,
+  `CREATE TABLE IF NOT EXISTS session_template_exercises (
+     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+     session_template_id INTEGER NOT NULL REFERENCES session_templates(id) ON DELETE CASCADE,
+     exercise_id         INTEGER NOT NULL REFERENCES exercises(id),
+     order_index         INTEGER NOT NULL,
+     circuit_index       INTEGER,
+     circuit_rounds      INTEGER,
+     prescribed_reps     INTEGER,
+     prescribed_seconds  INTEGER,
+     prescribed_sets     INTEGER NOT NULL DEFAULT 1 CHECK(prescribed_sets >= 1),
+     per_side            BOOLEAN NOT NULL DEFAULT 0,
+     as_maximum          BOOLEAN NOT NULL DEFAULT 0,
+     hint                TEXT,
+     UNIQUE(session_template_id, order_index)
+   )`,
+  `CREATE TABLE IF NOT EXISTS weeks (
+     id         INTEGER PRIMARY KEY AUTOINCREMENT,
+     plan_id    INTEGER NOT NULL REFERENCES plans(id),
+     created_at DATETIME DEFAULT (datetime('now')),
+     finished   BOOLEAN NOT NULL DEFAULT 0
+   )`,
+  `CREATE TABLE IF NOT EXISTS sessions (
+     id            INTEGER PRIMARY KEY AUTOINCREMENT,
+     week_id       INTEGER NOT NULL REFERENCES weeks(id) ON DELETE CASCADE,
+     day_index     INTEGER NOT NULL,
+     weekday_label TEXT,
+     session_name  TEXT NOT NULL,
+     trained_at    DATETIME,
+     finished      BOOLEAN NOT NULL DEFAULT 0,
+     notes         TEXT
+   )`,
+  `CREATE TABLE IF NOT EXISTS session_exercises (
+     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+     session_id         INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+     exercise_id        INTEGER NOT NULL REFERENCES exercises(id),
+     order_index        INTEGER NOT NULL,
+     circuit_index      INTEGER,
+     circuit_rounds     INTEGER,
+     prescribed_reps    INTEGER,
+     prescribed_seconds INTEGER,
+     prescribed_sets    INTEGER NOT NULL DEFAULT 1 CHECK(prescribed_sets >= 1),
+     per_side           BOOLEAN NOT NULL DEFAULT 0,
+     as_maximum         BOOLEAN NOT NULL DEFAULT 0,
+     hint               TEXT,
+     finished           BOOLEAN NOT NULL DEFAULT 0
+   )`,
+  `CREATE TABLE IF NOT EXISTS sets (
+     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+     session_exercise_id INTEGER NOT NULL REFERENCES session_exercises(id) ON DELETE CASCADE,
+     set_index           INTEGER NOT NULL,
+     weight              REAL,
+     reps                INTEGER,
+     seconds             INTEGER,
+     UNIQUE(session_exercise_id, set_index)
+   )`,
+  `CREATE TABLE IF NOT EXISTS settings (
+     key   TEXT PRIMARY KEY,
+     value TEXT
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_plan_days_plan      ON plan_days(plan_id, day_index)`,
+  `CREATE INDEX IF NOT EXISTS idx_ste_template        ON session_template_exercises(session_template_id, order_index)`,
+  `CREATE INDEX IF NOT EXISTS idx_sessions_week       ON sessions(week_id, day_index)`,
+  `CREATE INDEX IF NOT EXISTS idx_sessions_trained    ON sessions(trained_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_se_session          ON session_exercises(session_id, order_index)`,
+  `CREATE INDEX IF NOT EXISTS idx_se_exercise         ON session_exercises(exercise_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_sets_se             ON sets(session_exercise_id, set_index)`,
+];
 
-export const dropAllTables = async () => {
+export async function initDB(): Promise<void> {
   const db = await getDBConnection();
-  const dropTableQueries = [
-    'DROP TABLE IF EXISTS sets;',
-    'DROP TABLE IF EXISTS exercises;',
-    'DROP TABLE IF EXISTS training_days;',
-    'DROP TABLE IF EXISTS training_day_exercises;',
-    'DROP TABLE IF EXISTS workout_programs;',
-  ];
-
-  try {
-    await Promise.all(dropTableQueries.map(query => db.executeSql(query)));
-    console.log('All tables dropped successfully');
-  } catch (error) {
-    console.error('Error dropping tables', error);
+  for (const stmt of SCHEMA) {
+    await db.executeSql(stmt);
   }
-};
-
-export const initDB = async () => {
-  const db = await getDBConnection();
-
-  const queries = [
-    `
-    CREATE TABLE IF NOT EXISTS sets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        training_day_exercise_id INTEGER,
-        weight FLOAT,
-        reps INTEGER,
-        FOREIGN KEY (training_day_exercise_id) REFERENCES training_day_exercises(id)
-    );`,
-    `
-    CREATE TABLE IF NOT EXISTS exercises (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        sets INTEGER DEFAULT 1,
-        name TEXT NOT NULL UNIQUE,
-        hint TEXT,
-        sled BOOLEAN DEFAULT 0,
-        time INTEGER, -- NULL if not applicable
-        video TEXT
-    );`,
-    `
-    CREATE TABLE IF NOT EXISTS training_days (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        workout_program_id INTEGER,
-        day TEXT CHECK(day IN (
-          'Reverse Step Up Leg Day',
-          'Chest Pressing Upper Body Day',
-          'Mobility Day',
-          'Split Squat Leg Day',
-          'Shoulder Pressing Upper Body Day',
-          'Lower Body',
-          'Lower Body 2',
-          'Lower Body 3',
-          'Upper Body and Stretching',
-          'Upper Body and Stretching 2'
-        )),
-        finished BOOLEAN DEFAULT 0,
-        FOREIGN KEY (workout_program_id) REFERENCES workout_programs(id)
-    );`,
-    `
-    CREATE TABLE IF NOT EXISTS training_day_exercises (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        training_day_id INTEGER,
-        exercise_id INTEGER,
-        next BOOLEAN DEFAULT 0,
-        finished BOOLEAN DEFAULT 0,
-        FOREIGN KEY (training_day_id) REFERENCES training_days(id),
-        FOREIGN KEY (exercise_id) REFERENCES exercises(id)
-    );`,
-    `
-    CREATE TABLE IF NOT EXISTS workout_programs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        type CHAR(1) CHECK(type IN ('A', 'B', 'C')) NOT NULL,
-        start_date DATE DEFAULT (date('now')),
-        end_date DATE,
-        finished BOOLEAN DEFAULT 0
-    );`,
-  ];
-
-  for (const query of queries) {
-    await db.executeSql(query);
-  }
-
-  await migrateWorkoutProgramsTable(db);
-  await migrateTrainingDaysTable(db);
-  await migrateExercisesTable(db);
-  await migrateTrainingDayExercisesTable(db);
-
-  const [res] = await db.executeSql(`SELECT id FROM exercises;`);
-  const rows = res.rows.raw();
-
-  if (!rows.length) await createExercises(db);
-  else await addMissingExercises(db);
-};
-
-async function createExercises(db: SQLiteDatabase) {
-  // Create a map to track unique exercises by name
-  const uniqueExercises = new Map();
-
-  // Iterate over all sessions and their exercises
-  training.A.sessions.forEach(session => {
-    session.exercises.forEach(exercise => {
-      // Use exercise name as the key to ensure uniqueness
-      if (!uniqueExercises.has(exercise.name)) {
-        uniqueExercises.set(exercise.name, exercise);
-      }
-    });
-  });
-
-  training.B.sessions.forEach(session => {
-    session.exercises.forEach(exercise => {
-      if (!uniqueExercises.has(exercise.name)) {
-        uniqueExercises.set(exercise.name, exercise);
-      }
-    });
-  });
-
-  surfTraining.sessions.forEach(session => {
-    session.exercises.forEach(exercise => {
-      if (!uniqueExercises.has(exercise.name)) {
-        uniqueExercises.set(exercise.name, exercise);
-      }
-    });
-  });
-
-  // Now insert each unique exercise into the database
-  for (const exercise of uniqueExercises.values()) {
-    await createExercise({exercise, db});
-  }
+  // seedDB is implemented in Task 11
 }
 
-async function createExercise({
-  db,
-  exercise,
-}: {
-  db: SQLiteDatabase;
-  exercise: Exercise;
-}) {
-  await db.executeSql(exerciseQueryString, [
-    exercise.name,
-    exercise.hint || null,
-    exercise.sled ? 1 : 0,
-    exercise.time || null,
-    exercise.video,
-    exercise.next ? 1 : 0,
-    exercise.sets?.length || 1,
-  ]);
-}
-
-async function addMissingExercises(db: SQLiteDatabase) {
-  const uniqueExercises = new Map();
-
-  // Collect all exercises from training A and B
-  ['A', 'B'].forEach((type: TrainingType) => {
-    training[type].sessions.forEach((session: TrainingDay) => {
-      session.exercises?.forEach(exercise => {
-        if (!uniqueExercises.has(exercise.name)) {
-          uniqueExercises.set(exercise.name, exercise);
-        }
-      });
-    });
-  });
-
-  surfTraining.sessions.forEach((session: TrainingDay) => {
-    session.exercises?.forEach(exercise => {
-      if (!uniqueExercises.has(exercise.name)) {
-        uniqueExercises.set(exercise.name, exercise);
-      }
-    });
-  });
-
-  for (const exercise of uniqueExercises.values()) {
-    const queryCheck = `
-      SELECT COUNT(*) as count FROM exercises WHERE name = ?;
-    `;
-
-    const [checkResult] = await db.executeSql(queryCheck, [exercise.name]);
-    const {count} = checkResult.rows.item(0);
-
-    // Insert exercise if it doesn't exist
-    if (count === 0) await createExercise({exercise, db});
-  }
-}
-
-export async function insertWorkoutProgram(
-  db: SQLiteDatabase,
-  type: 'A' | 'B' | 'C',
-): Promise<void> {
-  try {
-    const [programResult] = await db.executeSql(
-      `
-        INSERT INTO workout_programs (type, start_date, end_date, finished)
-        VALUES (?, datetime('now'), datetime('now', '+7 days'), ?);
-      `,
-      [type, 0],
-    );
-
-    const workoutProgramID = programResult?.insertId;
-    if (!workoutProgramID) {
-      throw new Error('Failed to insert new workout program.');
-    }
-
-    let sessionsToInsert =
-      type === 'C' ? surfTraining.sessions : training[type].sessions;
-
-    // Insert training days and their exercises
-    await insertTrainingDays(db, workoutProgramID, sessionsToInsert);
-  } catch (error) {
-    console.error('Error inserting workout program:', (error as Error).message);
-    throw error;
-  }
-}
-
-export async function insertTrainingDays(
-  db: SQLiteDatabase,
-  workoutProgramId: number,
-  sessions:
-    | typeof training.A.sessions
-    | typeof training.B.sessions
-    | typeof surfTraining.sessions,
-): Promise<void> {
-  for (const day of sessions) {
-    const query = `
-        INSERT INTO training_days (workout_program_id, day, finished)
-        VALUES (?, ?, ?);
-    `;
-    const [result] = await db.executeSql(query, [workoutProgramId, day.day, 0]);
-
-    const trainingDayID = result.insertId;
-    await insertExercises(db, trainingDayID, day.exercises);
-  }
-}
-
-export async function insertExercises(
-  db: SQLiteDatabase,
-  trainingDayID: number,
-  exercises: Exercise[],
-): Promise<void> {
-  for (let i = 0; i < exercises.length; i++) {
-    const exercise = exercises[i];
-    const isNext = i < exercises.length - 1 ? 1 : 0; // Determine `next`
-
-    const [result] = await db.executeSql(
-      `SELECT id FROM exercises WHERE name = ?`,
-      [exercise.name],
-    );
-
-    const rows = result.rows.raw();
-    const exerciseID = rows[0]?.id;
-
-    if (!exerciseID) {
-      console.error(`Exercise not found: ${exercise.name}`);
-      continue;
-    }
-
-    const trainingDayExerciseID = await insertTrainingDayExercises(
-      db,
-      trainingDayID,
-      exerciseID,
-      isNext,
-    );
-
-    // Insert sets for this exercise
-    if (exercise.sets?.length > 0) {
-      for (const set of exercise.sets) {
-        await insertSets(db, trainingDayExerciseID, set);
-      }
-    }
-  }
-}
-
-export async function insertTrainingDayExercises(
-  db: SQLiteDatabase,
-  trainingDayID: number,
-  exerciseID: number,
-  next: number,
-): Promise<number> {
-  const query = `
-        INSERT INTO training_day_exercises (training_day_id, exercise_id, next)
-        VALUES (?, ?, ?);`;
-  const [res] = await db.executeSql(query, [trainingDayID, exerciseID, next]);
-  return res.insertId;
-}
-
-export async function insertSets(
-  db: SQLiteDatabase,
-  trainingDayExerciseID: number,
-  set: ExerciseSet,
-): Promise<void> {
-  const query = `
-        INSERT INTO sets (training_day_exercise_id, weight, reps)
-        VALUES (?, ?, ?);`;
-  await db.executeSql(query, [
-    trainingDayExerciseID,
-    set.weight || null,
-    set.reps,
-  ]);
-}
-
-export async function getNewWorkoutProgramType(db: SQLiteDatabase) {
-  const query = `
-        SELECT type FROM workout_programs
-        ORDER BY id DESC
-        LIMIT 1;
-    `;
-  const [result] = await db.executeSql(query);
-  const rows = result.rows.raw();
-
-  if (rows.length > 0) return rows[0].type == 'A' ? 'B' : 'A';
-
-  return 'A';
-}
-
-export async function fetchWeeks(
-  db: SQLiteDatabase,
-  type: 'surf' | 'standard',
-) {
-  const workoutPrograms = await fetchWorkoutPrograms(db);
-
-  const filteredPrograms = workoutPrograms.filter(program => {
-    if (type == 'surf') return program.type == 'C';
-    return program.type == 'A' || program.type == 'B';
-  });
-
-  for (const program of filteredPrograms) {
-    program.sessions = await fetchTrainingDays(db, program.id);
-    for (const session of program.sessions) {
-      session.exercises = await fetchExercisesForTrainingDay(db, session.id);
-    }
-  }
-
-  return filteredPrograms;
-}
-
-export async function fetchWeekByID(
-  db: SQLiteDatabase,
-  workoutProgramID: number,
-) {
-  const workoutPrograms = await fetchWorkoutPrograms(db, workoutProgramID);
-
-  if (workoutPrograms.length === 0) {
-    console.log(`Workout program with ID ${workoutProgramID} not found.`);
-    return null;
-  }
-
-  const [program] = workoutPrograms;
-  program.sessions = await fetchTrainingDays(db, program.id);
-
-  for (const session of program.sessions) {
-    session.exercises = await fetchExercisesForTrainingDay(db, session.id);
-  }
-
-  return program;
-}
-
-async function fetchWorkoutPrograms(
-  db: SQLiteDatabase,
-  workoutProgramID?: number,
-) {
-  let query = `SELECT * FROM workout_programs`;
-  let params = [];
-
-  if (workoutProgramID) {
-    query += ` WHERE id = ?`;
-    params.push(workoutProgramID);
-  }
-
-  const [result] = await db.executeSql(query, params);
-  return result.rows.raw();
-}
-
-async function fetchTrainingDays(db: SQLiteDatabase, workoutProgramID: number) {
-  const result = await db.executeSql(
-    `SELECT * FROM training_days WHERE workout_program_id = ?;`,
-    [workoutProgramID],
-  );
-  return result[0].rows.raw();
-}
-
-async function fetchExercisesForTrainingDay(
-  db: SQLiteDatabase,
-  trainingDayID: number,
-) {
-  const [result] = await db.executeSql(
-    `SELECT e.*, tde.finished, tde.id as training_day_exercise_id FROM exercises e 
-     JOIN training_day_exercises tde ON e.id = tde.exercise_id 
-     WHERE tde.training_day_id = ?;`,
-    [trainingDayID],
-  );
-  const exercises = result.rows.raw();
-
-  for (const exercise of exercises) {
-    exercise.sets = await fetchSetsForExercise(
-      db,
-      exercise.training_day_exercise_id,
-    );
-  }
-
-  return exercises;
-}
-
-async function fetchSetsForExercise(
-  db: SQLiteDatabase,
-  trainingDayExerciseID: number,
-) {
-  const result = await db.executeSql(
-    `SELECT * FROM sets WHERE training_day_exercise_id = ?;`,
-    [trainingDayExerciseID],
-  );
-
-  return result[0].rows.raw();
-}
-
-export async function deleteWorkoutProgram(workoutProgramId: number) {
-  const db = await getDBConnection();
-  await db.transaction(async tx => {
-    try {
-      // Delete sets related to the workout program
-      const deleteSetsQuery = `
-      DELETE FROM sets
-      WHERE training_day_exercise_id IN (
-        SELECT tde.id
-        FROM training_day_exercises tde
-        JOIN training_days td ON tde.training_day_id = td.id
-        WHERE td.workout_program_id = ?
-      );`;
-      tx.executeSql(deleteSetsQuery, [workoutProgramId]);
-      // Delete training day exercises related to the workout program
-      const deleteTrainingDayExercisesQuery = `
-      DELETE FROM training_day_exercises
-      WHERE training_day_id IN (
-        SELECT id FROM training_days WHERE workout_program_id = ?
-      );`;
-      tx.executeSql(deleteTrainingDayExercisesQuery, [workoutProgramId]);
-      // Delete training days related to the workout program
-      const deleteTrainingDaysQuery = `DELETE FROM training_days WHERE workout_program_id = ?;`;
-      tx.executeSql(deleteTrainingDaysQuery, [workoutProgramId]);
-      // Finally, delete the workout program itself
-      const deleteWorkoutProgramQuery = `DELETE FROM workout_programs WHERE id = ?;`;
-      tx.executeSql(deleteWorkoutProgramQuery, [workoutProgramId]);
-    } catch (error) {
-      console.error(error);
-    }
-  });
-
-  console.log(
-    `Workout program ${workoutProgramId} and all related data has been deleted.`,
-  );
-}
-
-export async function getAllExercises(db: SQLiteDatabase) {
-  const [results] = await db.executeSql('SELECT name FROM exercises;');
-  return results?.rows.raw();
-}
-
-export async function fetchExerciseProgress(
-  db: SQLiteDatabase,
-  exerciseName: string,
-) {
-  const query = `
-    SELECT wp.start_date, tde.id as training_day_id, s.reps, s.weight, s.id
-    FROM sets s
-    INNER JOIN training_day_exercises tde ON s.training_day_exercise_id = tde.id
-    INNER JOIN exercises e ON tde.exercise_id = e.id
-    INNER JOIN training_days td ON tde.training_day_id = td.id
-    INNER JOIN workout_programs wp ON td.workout_program_id = wp.id
-    WHERE e.name = ?
-    ORDER BY wp.start_date ASC;
-  `;
-
-  const [results] = await db.executeSql(query, [exerciseName]);
-  return results?.rows.raw();
-}
-
-const dbPath = '/data/data/com.workoutwarden/databases/warden.db';
-
-export async function exportDatabase() {
+// Stub exports kept temporarily so consuming files keep type-checking.
+// Each is replaced by a real implementation in tasks 12-15.
+export async function exportDatabase(): Promise<void> {
   const exportPath = `${RNFS.DownloadDirectoryPath}/warden-exported.db`;
-
   try {
-    await RNFS.copyFile(dbPath, exportPath);
+    await RNFS.copyFile(DB_PATH_ANDROID, exportPath);
     Alert.alert('Success', `Database exported to ${exportPath}`);
   } catch (error) {
-    console.error('Error exporting database:', error);
     Alert.alert('Export failed', (error as Error)?.message);
   }
 }
 
-export async function importDatabase(importPath: string) {
+export async function importDatabase(importPath: string): Promise<void> {
   try {
     const db = await getDBConnection();
     await db.close();
-
-    await RNFS.copyFile(importPath, dbPath);
+    await RNFS.copyFile(importPath, DB_PATH_ANDROID);
     Alert.alert('Success', 'Database imported successfully');
   } catch (error) {
-    console.error('Error importing database:', error);
     Alert.alert('Import failed', (error as Error)?.message);
   }
 }
