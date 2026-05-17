@@ -1,93 +1,75 @@
+// src/screens/Statistics.tsx
 import React from 'react';
 import {StyleSheet, View, useWindowDimensions} from 'react-native';
 import {CartesianChart, Bar} from 'victory-native';
 import roboto from '../../assets/Roboto-Medium.ttf';
 import {LinearGradient, useFont, vec} from '@shopify/react-native-skia';
 
-import Error from '../components/Error';
+import ErrorComp from '../components/Error';
 import Toast from '../components/Toast';
 import Loading from '../components/Loading';
 import AppPicker from '../components/AppPicker';
 
+import {colors} from '../common/theme';
 import {
-  fetchExerciseProgress,
-  getAllExercises,
+  fetchAllExerciseSlugs,
+  fetchExerciseStats,
   getDBConnection,
+  type StatsPoint,
 } from '../common/databaseService';
-import {colors} from '../common/variables';
+import type {BaseProps} from '../common/types';
+
+interface ChartPoint {
+  day: number;
+  weight: number | null;
+}
 
 const Statistics: React.FC<BaseProps> = () => {
-  const [exerciseNames, setExercises] = React.useState<string[]>([]);
+  const [exercises, setExercises] = React.useState<{slug: string; name: string}[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<null | Error>(null);
+  const [error, setError] = React.useState<Error | null>(null);
   const [success, setSuccess] = React.useState('');
-  const [data, setData] = React.useState([]);
+  const [data, setData] = React.useState<ChartPoint[]>([]);
 
   const font = useFont(roboto, 12);
   const {height} = useWindowDimensions();
 
   React.useEffect(() => {
-    init();
+    (async () => {
+      try {
+        const db = await getDBConnection();
+        setExercises(await fetchAllExerciseSlugs(db));
+      } catch (err) {
+        setError(err as Error);
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
-  async function onSelect(exercise: string) {
+  async function onSelect(name: string) {
+    const found = exercises.find(e => e.name === name);
+    if (!found) return;
     const db = await getDBConnection();
-
-    const res = await fetchExerciseProgress(db, exercise);
-
-    const test = res.reduce((acc, cV) => {
-      if (cV.weight == null) return acc;
-
-      if (acc[cV.start_date] !== undefined) {
-        acc[cV.start_date] = Math.max(acc[cV.start_date], cV.weight);
-      } else {
-        acc[cV.start_date] = cV.weight;
-      }
-
-      return acc;
-    }, {});
-
-    let j = 0;
-
-    const transformedData = Object.keys(test).map(key => ({
-      day: ++j,
-      weight: test[key],
-    }));
-
-    setData(transformedData);
-  }
-
-  async function init() {
-    try {
-      const db = await getDBConnection();
-      const exercises = await getAllExercises(db);
-      setExercises(exercises.map(({name}) => name));
-    } catch (err) {
-      setError(err as Error);
-    } finally {
-      setLoading(false);
-    }
+    const stats: StatsPoint[] = await fetchExerciseStats(db, found.slug);
+    setData(stats.map((p, i) => ({day: i + 1, weight: p.max_weight})));
   }
 
   if (loading) return <Loading text="Loading Statistics" />;
-  if (error) return <Error error={error}>{error?.message}</Error>;
+  if (error) return <ErrorComp error={error}>{error.message}</ErrorComp>;
 
   return (
     <View style={styles.root}>
-      <AppPicker onSelect={onSelect} items={exerciseNames} />
+      <AppPicker onSelect={onSelect} items={exercises.map(e => e.name)} />
 
-      {!!data?.length && (
+      {data.length > 0 && (
         <View style={{height: height * 0.65}}>
           <CartesianChart
             domainPadding={{left: 30, top: 10, right: 30}}
             axisOptions={{
               font,
-              formatXLabel(value) {
-                return 'Workout ' + value;
-              },
-              formatYLabel(value) {
-                return value + ' kg';
-              },
+              formatXLabel: v => 'Workout ' + v,
+              formatYLabel: v => v + ' kg',
             }}
             domain={{y: [0]}}
             data={data}
@@ -97,10 +79,7 @@ const Statistics: React.FC<BaseProps> = () => {
               <Bar
                 chartBounds={chartBounds}
                 points={points.weight}
-                roundedCorners={{
-                  topLeft: 5,
-                  topRight: 5,
-                }}>
+                roundedCorners={{topLeft: 5, topRight: 5}}>
                 <LinearGradient
                   start={vec(0, 0)}
                   end={vec(0, 600)}
@@ -117,13 +96,7 @@ const Statistics: React.FC<BaseProps> = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#fff',
-    padding: 16,
-    justifyContent: 'space-between',
-    gap: 16,
-  },
+  root: {flex: 1, backgroundColor: '#fff', padding: 16, justifyContent: 'space-between', gap: 16},
 });
 
 export default Statistics;
