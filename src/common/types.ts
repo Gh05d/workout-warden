@@ -1,7 +1,9 @@
 // src/common/types.ts
-// Shared types for v2.0 plan-driven schema. Ambient declarations (no `export`)
-// keep the legacy zero-import ergonomics from the old global.d.ts; explicit
-// re-exports at the bottom let modules that prefer explicit imports use them.
+// Shared types for v2.0 plan-driven schema. Consumers must use explicit
+// `import type {...} from '../common/types'` — this file is a module
+// (because of the trailing `export type {...}` block), not an ambient
+// declaration file, so the bare `interface` keywords below do NOT register
+// as global names.
 
 // ===== Seed-side types (TS constants in src/seeds/) =====
 
