@@ -116,9 +116,15 @@ const SessionScreen: React.FC<BaseProps> = ({navigation, route}) => {
     if (!currentSession) return;
     setUpdating(true);
     try {
-      const allDone = currentSession.exercises.every(e => e.finished);
-      if (!allDone) throw new Error('There are still exercises open');
+      // Re-fetch from DB instead of trusting local state — Exercise.tsx mutates
+      // session_exercises.finished directly via setSessionExerciseFinished, those
+      // writes don't propagate up to currentWeek until the next useFocusEffect.
       const db = await getDBConnection();
+      const freshWeek = await fetchWeekById(db, currentWeek!.id);
+      const freshSession = freshWeek?.sessions.find(s => s.id === currentSession.id);
+      if (!freshSession) throw new Error('Session not found');
+      const allDone = freshSession.exercises.every(e => e.finished);
+      if (!allDone) throw new Error('There are still exercises open');
       await finishSession(db, currentSession.id);
       setCurrentWeek(prev => {
         if (!prev) return prev;

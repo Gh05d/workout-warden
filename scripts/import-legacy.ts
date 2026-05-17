@@ -43,6 +43,20 @@ const txn = dst.transaction(() => {
   }
   const planId = planRow.id;
 
+  // Idempotency guard: re-running on a target that already has imported history
+  // would silently double the data (weeks/sessions/sets are blind INSERTs below).
+  // Refuse to proceed unless --force is passed.
+  const existingWeeks = (
+    dst.prepare(`SELECT COUNT(*) AS n FROM weeks WHERE plan_id = ?`).get(planId) as {n: number}
+  ).n;
+  if (existingWeeks > 0 && !process.argv.includes('--force')) {
+    throw new Error(
+      `Target DB already contains ${existingWeeks} weeks for the 'legacy' plan. ` +
+        `Refusing to import to avoid duplicating data. Pass --force to import anyway, ` +
+        `or delete the target file and re-run.`,
+    );
+  }
+
   // 3. Distinct days from source → session_templates + plan_days
   const distinctDays: {day: string}[] = src
     .prepare(`SELECT DISTINCT day FROM training_days ORDER BY day ASC`)

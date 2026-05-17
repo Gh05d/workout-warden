@@ -13,7 +13,7 @@ import {
 import MaterialIcons from '@react-native-vector-icons/material-icons';
 
 import AppText from './AppText';
-import {colors} from '../common/variables';
+import {colors} from '../common/theme';
 
 interface Props {
   startItem?: string;

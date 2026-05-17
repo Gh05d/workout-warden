@@ -12,7 +12,7 @@ import {useKeepAwake} from '@sayem314/react-native-keep-awake';
 
 import AppText from './AppText';
 import AppInput from './AppInput';
-import {colors} from '../common/variables';
+import {colors} from '../common/theme';
 import {row} from '../common/styles';
 
 interface Props {
