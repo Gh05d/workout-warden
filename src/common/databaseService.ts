@@ -1,6 +1,8 @@
 import {SQLiteDatabase, openDatabase} from 'react-native-sqlite-storage';
 import RNFS from '@dr.pogodin/react-native-fs';
 import {Alert} from 'react-native';
+import {EXERCISES, PLANS} from '../seeds';
+import {validateSeed} from './seedValidator';
 
 const DB_NAME = 'warden.db';
 const DB_PATH_ANDROID = '/data/data/com.workoutwarden/databases/warden.db';
@@ -106,12 +108,105 @@ const SCHEMA: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sets_se             ON sets(session_exercise_id, set_index)`,
 ];
 
+export async function seedDB(db: SQLiteDatabase): Promise<void> {
+  validateSeed({exercises: [...EXERCISES], plans: [...PLANS]});
+
+  // 1. Upsert exercises (catalogue grows, never shrinks)
+  for (const ex of EXERCISES) {
+    await db.executeSql(
+      `INSERT INTO exercises (slug, name, video) VALUES (?, ?, ?)
+       ON CONFLICT(slug) DO UPDATE SET name = excluded.name, video = excluded.video`,
+      [ex.slug, ex.name, ex.video ?? null],
+    );
+  }
+
+  // 2. Per plan: insert if missing, leave existing plan content alone
+  for (const plan of PLANS) {
+    const [planRes] = await db.executeSql(`SELECT id FROM plans WHERE slug = ?`, [plan.slug]);
+    let planId: number;
+    if (planRes.rows.length === 0) {
+      const [ins] = await db.executeSql(
+        `INSERT INTO plans (slug, name, description) VALUES (?, ?, ?)`,
+        [plan.slug, plan.name, plan.description ?? null],
+      );
+      planId = ins.insertId;
+    } else {
+      planId = planRes.rows.item(0).id;
+    }
+
+    // 3. session_templates: insert only missing slugs (template content is immutable post-insert)
+    const templateIdBySlug = new Map<string, number>();
+    for (const tpl of plan.session_templates) {
+      const [tplRes] = await db.executeSql(`SELECT id FROM session_templates WHERE slug = ?`, [tpl.slug]);
+      let tplId: number;
+      if (tplRes.rows.length === 0) {
+        const [ins] = await db.executeSql(
+          `INSERT INTO session_templates (slug, name) VALUES (?, ?)`,
+          [tpl.slug, tpl.name],
+        );
+        tplId = ins.insertId;
+        // insert all exercises for this template
+        for (const ex of tpl.exercises) {
+          const [exRow] = await db.executeSql(`SELECT id FROM exercises WHERE slug = ?`, [ex.exercise_slug]);
+          const exId = exRow.rows.item(0).id as number;
+          await db.executeSql(
+            `INSERT INTO session_template_exercises
+               (session_template_id, exercise_id, order_index, circuit_index, circuit_rounds,
+                prescribed_reps, prescribed_seconds, prescribed_sets, per_side, as_maximum, hint)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              tplId, exId, ex.order_index,
+              ex.circuit_index ?? null,
+              ex.circuit_rounds ?? null,
+              ex.prescribed_reps ?? null,
+              ex.prescribed_seconds ?? null,
+              ex.prescribed_sets,
+              ex.per_side ? 1 : 0,
+              ex.as_maximum ? 1 : 0,
+              ex.hint ?? null,
+            ],
+          );
+        }
+      } else {
+        tplId = tplRes.rows.item(0).id;
+      }
+      templateIdBySlug.set(tpl.slug, tplId);
+    }
+
+    // 4. plan_days: insert only missing (plan_id, day_index)
+    for (const day of plan.days) {
+      const [dayRes] = await db.executeSql(
+        `SELECT id FROM plan_days WHERE plan_id = ? AND day_index = ?`,
+        [planId, day.day_index],
+      );
+      if (dayRes.rows.length === 0) {
+        const tplId = templateIdBySlug.get(day.session_template_slug)!;
+        await db.executeSql(
+          `INSERT INTO plan_days (plan_id, session_template_id, day_index, weekday_label) VALUES (?, ?, ?, ?)`,
+          [planId, tplId, day.day_index, day.weekday_label ?? null],
+        );
+      }
+    }
+  }
+
+  // 5. Default active_plan_id to the first seeded plan if not already set
+  const [active] = await db.executeSql(`SELECT value FROM settings WHERE key = 'active_plan_id'`);
+  if (active.rows.length === 0 && PLANS.length > 0) {
+    const [first] = await db.executeSql(`SELECT id FROM plans WHERE slug = ? LIMIT 1`, [PLANS[0].slug]);
+    if (first.rows.length > 0) {
+      await db.executeSql(`INSERT INTO settings (key, value) VALUES ('active_plan_id', ?)`, [
+        String(first.rows.item(0).id),
+      ]);
+    }
+  }
+}
+
 export async function initDB(): Promise<void> {
   const db = await getDBConnection();
   for (const stmt of SCHEMA) {
     await db.executeSql(stmt);
   }
-  // seedDB is implemented in Task 11
+  await seedDB(db);
 }
 
 // Stub exports kept temporarily so consuming files keep type-checking.
