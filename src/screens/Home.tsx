@@ -1,6 +1,11 @@
 import React from 'react';
 import {Button, Image, StyleSheet, View} from 'react-native';
-import DocumentPicker from 'react-native-document-picker';
+import {
+  pick,
+  types,
+  errorCodes,
+  isErrorWithCode,
+} from '@react-native-documents/picker';
 
 import {colors, demotivationalQuotes} from '../common/variables';
 import AppText from '../components/AppText';
@@ -13,19 +18,18 @@ const Home: React.FC<BaseProps> = ({route}) => {
 
   const quote =
     demotivationalQuotes[
-      Math.floor(Math.random() * demotivationalQuotes.length - 1)
+      Math.floor(Math.random() * demotivationalQuotes.length)
     ];
 
   async function pickFile() {
     try {
-      const res = await DocumentPicker.pickSingle({
-        type: [DocumentPicker.types.allFiles],
-      });
+      const [res] = await pick({type: [types.allFiles]});
 
       return res.uri;
     } catch (err) {
-      if (DocumentPicker.isCancel(err)) console.log('User canceled the picker');
-      else throw err;
+      if (isErrorWithCode(err) && err.code === errorCodes.OPERATION_CANCELED) {
+        console.log('User canceled the picker');
+      } else throw err;
     }
   }
 

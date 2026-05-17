@@ -7,8 +7,8 @@ import {
   Pressable,
   Animated,
 } from 'react-native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
-import KeepAwake from 'react-native-keep-awake';
+import MaterialIcons from '@react-native-vector-icons/material-icons';
+import {useKeepAwake} from '@sayem314/react-native-keep-awake';
 
 import AppText from './AppText';
 import AppInput from './AppInput';
@@ -40,13 +40,7 @@ const CountdownTimer: React.FC<Props> = ({duration, close}) => {
 
   const blinkAnim = React.useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    KeepAwake.activate();
-
-    () => {
-      KeepAwake.deactivate();
-    };
-  }, []);
+  useKeepAwake();
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;

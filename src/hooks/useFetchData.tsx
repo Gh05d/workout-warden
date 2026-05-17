@@ -1,7 +1,7 @@
 import React from 'react';
-import { useTheme } from '@react-navigation/native';
-import { AxiosRequestConfig } from 'axios';
-import { deepEqual } from '../../common/functions';
+import {useTheme} from '@react-navigation/native';
+import {AxiosRequestConfig} from 'axios';
+import {deepEqual} from '../../common/functions';
 
 const useFetchData = <T,>(url: string, config?: AxiosRequestConfig) => {
   const [stateData, setData] = React.useState<T | null>(null);
@@ -13,8 +13,8 @@ const useFetchData = <T,>(url: string, config?: AxiosRequestConfig) => {
   const [refreshError, setRefreshError] = React.useState<null | Error>(null);
   const [refetch, setRefreshing] = React.useState(false);
 
-  const { apiCall, caches } = useTheme() as unknown as AppTheme;
-  const { mixedCache } = caches;
+  const {apiCall, caches} = useTheme() as unknown as AppTheme;
+  const {mixedCache} = caches;
 
   React.useEffect(() => {
     let didCancel = false;
@@ -22,20 +22,20 @@ const useFetchData = <T,>(url: string, config?: AxiosRequestConfig) => {
     (async function fetchData() {
       try {
         const CACHE_KEY = `data-${url.replace(/\//gi, '-')}-${JSON.stringify(
-          config
+          config,
         )}`;
         var data = await mixedCache.peek(CACHE_KEY);
 
         if (data && !refetch) {
           // This is to make sure we always have the newest data
           apiCall(url, config)
-            .then((res) => {
+            .then(res => {
               // Don't update the UI if the data has not changed
               if (!deepEqual(data, res.data)) {
                 mixedCache.set(CACHE_KEY, res.data);
               }
             })
-            .catch((err) => console.info('Ist wohl schiefgegangen... 🤕', err));
+            .catch(err => console.info('Ist wohl schiefgegangen... 🤕', err));
         } else {
           const res = await apiCall(url, config);
           // eslint-disable-next-line prefer-destructuring
@@ -68,12 +68,12 @@ const useFetchData = <T,>(url: string, config?: AxiosRequestConfig) => {
     const nextPage = page + 1;
     // Update the API call as per your pagination logic
     apiCall(`${url}?page=${nextPage}`, config)
-      .then((res) => {
+      .then(res => {
         //@ts-ignore
-        setData((prevData) => [...prevData, ...res.data]);
+        setData(prevData => [...prevData, ...res.data]);
         setPage(nextPage);
       })
-      .catch((err) => {
+      .catch(err => {
         console.error('Error fetching more data:', err);
       })
       .finally(() => {

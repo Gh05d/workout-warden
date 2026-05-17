@@ -7,17 +7,39 @@ import {
 } from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createMaterialTopTabNavigator} from '@react-navigation/material-top-tabs';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import MaterialIcons from '@react-native-vector-icons/material-icons';
 
 import HomeScreen from './screens/Home';
 import StatisticsScreen from './screens/Statistics';
 import TrainingProgramScreen from './screens/Session';
 import Weeks from './screens/Weeks';
 
-import {colors, training} from './common/variables';
+import {colors, surfTraining, training} from './common/variables';
 
 const Tab = createBottomTabNavigator();
 const SubTab = createMaterialTopTabNavigator();
+const WeekTab = createMaterialTopTabNavigator();
+
+const WeeklyTabs: React.FC<BaseProps> = ({}) => (
+  <WeekTab.Navigator
+    backBehavior="history"
+    screenOptions={{
+      tabBarScrollEnabled: true,
+      tabBarBounces: true,
+      lazy: true,
+    }}>
+    <WeekTab.Screen
+      name="Standard"
+      component={Weeks}
+      initialParams={{type: 'standard'}}
+    />
+    <WeekTab.Screen
+      name="Surf"
+      component={Weeks}
+      initialParams={{type: 'surf'}}
+    />
+  </WeekTab.Navigator>
+);
 
 const WeeklyTrainingTabs: React.FC<BaseProps> = ({route}) => (
   <SubTab.Navigator
@@ -42,12 +64,36 @@ const WeeklyTrainingTabs: React.FC<BaseProps> = ({route}) => (
   </SubTab.Navigator>
 );
 
+const SurfWeeklyTrainingTabs: React.FC<BaseProps> = ({route}) => (
+  <SubTab.Navigator
+    backBehavior="history"
+    screenOptions={{
+      tabBarScrollEnabled: true,
+      tabBarBounces: true,
+      lazy: true,
+    }}>
+    {surfTraining.sessions.map((session, day: number) => (
+      <SubTab.Screen
+        key={session.day}
+        name={session.day}
+        component={TrainingProgramScreen}
+        initialParams={{
+          weekID: route.params?.weekID,
+          title: session.day,
+          day,
+        }}
+      />
+    ))}
+  </SubTab.Navigator>
+);
+
 const renderTabBarIcon =
   (name: string) =>
-  ({color, size}: {color: string; size: number}) =>
-    <MaterialIcons name={name} color={color} size={size} />;
+  ({color, size}: {color: string; size: number}) => (
+    <MaterialIcons name={name} color={color} size={size} />
+  );
 
-const Routes: React.FC<{puppy: string}> = ({puppy}) => {
+const Routes: React.FC<{puppy: string; type: string}> = ({puppy, type}) => {
   const AppTheme: Theme = {
     ...DefaultTheme,
     colors: {...DefaultTheme.colors, ...colors},
@@ -73,12 +119,14 @@ const Routes: React.FC<{puppy: string}> = ({puppy}) => {
         />
         <Tab.Screen
           name="Weeks"
-          component={Weeks}
+          component={WeeklyTabs}
           options={{tabBarIcon: renderTabBarIcon('save-as')}}
         />
         <Tab.Screen
           name="Sessions"
-          component={WeeklyTrainingTabs}
+          component={
+            type == 'surf' ? SurfWeeklyTrainingTabs : WeeklyTrainingTabs
+          }
           options={{
             tabBarIcon: renderTabBarIcon('fitness-center'),
             tabBarLabel: 'Sessions',

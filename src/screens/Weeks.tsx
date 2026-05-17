@@ -1,5 +1,6 @@
 import React from 'react';
 import {StyleSheet, View, FlatList, Button, RefreshControl} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import AppText from '../components/AppText';
 import Toast from '../components/Toast';
@@ -8,7 +9,7 @@ import Error from '../components/Error';
 import Loading from '../components/Loading';
 import WeekAccordion from '../components/WeekAccordion';
 
-import {colors} from '../common/variables';
+import {colors, TRAINING_TYPE} from '../common/variables';
 import {
   fetchWeeks,
   getDBConnection,
@@ -16,7 +17,8 @@ import {
   insertWorkoutProgram,
 } from '../common/databaseService';
 
-const Weeks: React.FC<BaseProps> = ({}) => {
+const Weeks: React.FC<BaseProps> = ({route}) => {
+  const {type} = route.params as {type: 'standard' | 'surf'};
   const [weeks, setWeeks] = React.useState<Week[]>([]);
   const [error, setError] = React.useState<null | Error>(null);
   const [initError, setInitError] = React.useState<null | Error>(null);
@@ -32,7 +34,7 @@ const Weeks: React.FC<BaseProps> = ({}) => {
   async function init() {
     try {
       const db = await getDBConnection();
-      const res = await fetchWeeks(db);
+      const res = await fetchWeeks(db, type);
 
       if (res?.length) setWeeks(res);
     } catch (err) {
@@ -65,10 +67,14 @@ const Weeks: React.FC<BaseProps> = ({}) => {
       await setUpdating(true);
 
       const db = await getDBConnection();
-      const type = await getNewWorkoutProgramType(db);
-      await insertWorkoutProgram(db, type);
 
-      const res = await fetchWeeks(db);
+      if (type == 'standard') {
+        const workoutType = await getNewWorkoutProgramType(db);
+        await insertWorkoutProgram(db, workoutType);
+      } else await insertWorkoutProgram(db, 'C');
+
+      const res = await fetchWeeks(db, type);
+      AsyncStorage.setItem(TRAINING_TYPE, type);
       setWeeks(res);
       setSuccess('Added new Week');
     } catch (err) {

@@ -1,6 +1,6 @@
 const config = {
   presets: ['module:@react-native/babel-preset'],
-  plugins: ['react-native-reanimated/plugin'],
+  plugins: ['react-native-worklets/plugin'],
 };
 
 if (process.env.USE_CONSOLE !== 'true') {

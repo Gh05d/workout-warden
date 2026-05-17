@@ -1,8 +1,14 @@
 import {Alert} from 'react-native';
 import {SQLiteDatabase, openDatabase} from 'react-native-sqlite-storage';
-import RNFS from 'react-native-fs';
+import RNFS from '@dr.pogodin/react-native-fs';
 
-import {training} from './variables';
+import {surfTraining, training} from './variables';
+import {
+  migrateExercisesTable,
+  migrateTrainingDayExercisesTable,
+  migrateTrainingDaysTable,
+  migrateWorkoutProgramsTable,
+} from './migrations';
 
 const exerciseQueryString = `
   INSERT INTO exercises (name, hint, sled, time, video, next, sets)
@@ -34,20 +40,6 @@ export const dropAllTables = async () => {
 export const initDB = async () => {
   const db = await getDBConnection();
 
-  await db
-    .executeSql(
-      `
-    ALTER TABLE exercises ADD COLUMN next BOOLEAN DEFAULT 0;
-  `,
-    )
-    .catch(error => {
-      if (error.message.includes('duplicate column name')) {
-        console.log('Column "next" already exists, skipping...');
-      } else {
-        console.error('Error adding new column', error);
-      }
-    });
-
   const queries = [
     `
     CREATE TABLE IF NOT EXISTS sets (
@@ -65,19 +57,23 @@ export const initDB = async () => {
         hint TEXT,
         sled BOOLEAN DEFAULT 0,
         time INTEGER, -- NULL if not applicable
-        next BOOLEAN DEFAULT 0,
         video TEXT
     );`,
     `
     CREATE TABLE IF NOT EXISTS training_days (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         workout_program_id INTEGER,
-        day TEXT CHECK( day IN (
-            'Reverse Step Up Leg Day',
-            'Chest Pressing Upper Body Day',
-            'Mobility Day',
-            'Split Squat Leg Day',
-            'Shoulder Pressing Upper Body Day'
+        day TEXT CHECK(day IN (
+          'Reverse Step Up Leg Day',
+          'Chest Pressing Upper Body Day',
+          'Mobility Day',
+          'Split Squat Leg Day',
+          'Shoulder Pressing Upper Body Day',
+          'Lower Body',
+          'Lower Body 2',
+          'Lower Body 3',
+          'Upper Body and Stretching',
+          'Upper Body and Stretching 2'
         )),
         finished BOOLEAN DEFAULT 0,
         FOREIGN KEY (workout_program_id) REFERENCES workout_programs(id)
@@ -87,6 +83,7 @@ export const initDB = async () => {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         training_day_id INTEGER,
         exercise_id INTEGER,
+        next BOOLEAN DEFAULT 0,
         finished BOOLEAN DEFAULT 0,
         FOREIGN KEY (training_day_id) REFERENCES training_days(id),
         FOREIGN KEY (exercise_id) REFERENCES exercises(id)
@@ -94,7 +91,7 @@ export const initDB = async () => {
     `
     CREATE TABLE IF NOT EXISTS workout_programs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        type CHAR(1) CHECK( type IN ('A', 'B')) NOT NULL,
+        type CHAR(1) CHECK(type IN ('A', 'B', 'C')) NOT NULL,
         start_date DATE DEFAULT (date('now')),
         end_date DATE,
         finished BOOLEAN DEFAULT 0
@@ -104,6 +101,11 @@ export const initDB = async () => {
   for (const query of queries) {
     await db.executeSql(query);
   }
+
+  await migrateWorkoutProgramsTable(db);
+  await migrateTrainingDaysTable(db);
+  await migrateExercisesTable(db);
+  await migrateTrainingDayExercisesTable(db);
 
   const [res] = await db.executeSql(`SELECT id FROM exercises;`);
   const rows = res.rows.raw();
@@ -127,6 +129,14 @@ async function createExercises(db: SQLiteDatabase) {
   });
 
   training.B.sessions.forEach(session => {
+    session.exercises.forEach(exercise => {
+      if (!uniqueExercises.has(exercise.name)) {
+        uniqueExercises.set(exercise.name, exercise);
+      }
+    });
+  });
+
+  surfTraining.sessions.forEach(session => {
     session.exercises.forEach(exercise => {
       if (!uniqueExercises.has(exercise.name)) {
         uniqueExercises.set(exercise.name, exercise);
@@ -172,6 +182,14 @@ async function addMissingExercises(db: SQLiteDatabase) {
     });
   });
 
+  surfTraining.sessions.forEach((session: TrainingDay) => {
+    session.exercises?.forEach(exercise => {
+      if (!uniqueExercises.has(exercise.name)) {
+        uniqueExercises.set(exercise.name, exercise);
+      }
+    });
+  });
+
   for (const exercise of uniqueExercises.values()) {
     const queryCheck = `
       SELECT COUNT(*) as count FROM exercises WHERE name = ?;
@@ -180,19 +198,16 @@ async function addMissingExercises(db: SQLiteDatabase) {
     const [checkResult] = await db.executeSql(queryCheck, [exercise.name]);
     const {count} = checkResult.rows.item(0);
 
-    if (count === 0) {
-      // Insert exercise if it doesn't exist
-      await createExercise({exercise, db});
-    }
+    // Insert exercise if it doesn't exist
+    if (count === 0) await createExercise({exercise, db});
   }
 }
 
 export async function insertWorkoutProgram(
   db: SQLiteDatabase,
-  type: 'A' | 'B',
-) {
+  type: 'A' | 'B' | 'C',
+): Promise<void> {
   try {
-    // Insert new workout program
     const [programResult] = await db.executeSql(
       `
         INSERT INTO workout_programs (type, start_date, end_date, finished)
@@ -206,97 +221,25 @@ export async function insertWorkoutProgram(
       throw new Error('Failed to insert new workout program.');
     }
 
-    // Fetch the last workout program of the same type
-    const [lastProgramResult] = await db.executeSql(
-      `
-        SELECT id FROM workout_programs
-        WHERE type = ? AND id < ?
-        ORDER BY id DESC
-        LIMIT 1;
-      `,
-      [type, workoutProgramID],
-    );
+    let sessionsToInsert =
+      type === 'C' ? surfTraining.sessions : training[type].sessions;
 
-    const lastWorkoutProgram =
-      lastProgramResult.rows.length > 0 ? lastProgramResult.rows.item(0) : null;
-
-    // Use training object as the template for new sessions
-    let sessionsToInsert = training[type].sessions;
-
-    if (lastWorkoutProgram && lastWorkoutProgram.id) {
-      // Fetch sessions from the last workout program
-      const lastProgramSessions = await fetchTrainingDays(
-        db,
-        lastWorkoutProgram.id,
-      );
-
-      // Map the sessions from the training object while updating weights
-      sessionsToInsert = await Promise.all(
-        training[type].sessions.map(async (newSession, index) => {
-          const lastSession = lastProgramSessions[index];
-
-          if (lastSession) {
-            // Fetch exercises for this specific training day in the last workout program
-            const lastSessionExercises = await fetchExercisesForTrainingDay(
-              db,
-              lastSession.id,
-            );
-
-            // Update exercises in the new session using the fetched data from the previous session
-            const updatedExercises = newSession.exercises.map(exercise => {
-              const lastExercise = lastSessionExercises.find(
-                ex => ex.name === exercise.name,
-              );
-
-              if (lastExercise) {
-                // Map over sets to update weights where applicable
-                const updatedSets = exercise.sets.map((set, setIndex) => {
-                  if (
-                    lastExercise.sets &&
-                    lastExercise.sets[setIndex] &&
-                    lastExercise.sets[setIndex].weight !== undefined &&
-                    lastExercise.sets[setIndex].weight !== null
-                  ) {
-                    return {
-                      ...set,
-                      weight: lastExercise.sets[setIndex].weight,
-                    };
-                  }
-                  return set; // If no previous value, return original set
-                });
-
-                return {
-                  ...exercise,
-                  sets: updatedSets,
-                };
-              }
-              return exercise;
-            });
-
-            return {
-              ...newSession,
-              exercises: updatedExercises,
-            };
-          }
-
-          return newSession; // If no last session, keep the original session from training
-        }),
-      );
-    }
-
-    // Insert training days with the updated sessions
+    // Insert training days and their exercises
     await insertTrainingDays(db, workoutProgramID, sessionsToInsert);
   } catch (error) {
-    console.error('Error inserting workout program:', error.message);
-    throw error; // Re-throw to handle it elsewhere if needed
+    console.error('Error inserting workout program:', (error as Error).message);
+    throw error;
   }
 }
 
 export async function insertTrainingDays(
   db: SQLiteDatabase,
   workoutProgramId: number,
-  sessions: typeof training.A.sessions | typeof training.B.sessions,
-) {
+  sessions:
+    | typeof training.A.sessions
+    | typeof training.B.sessions
+    | typeof surfTraining.sessions,
+): Promise<void> {
   for (const day of sessions) {
     const query = `
         INSERT INTO training_days (workout_program_id, day, finished)
@@ -305,7 +248,6 @@ export async function insertTrainingDays(
     const [result] = await db.executeSql(query, [workoutProgramId, day.day, 0]);
 
     const trainingDayID = result.insertId;
-
     await insertExercises(db, trainingDayID, day.exercises);
   }
 }
@@ -314,20 +256,32 @@ export async function insertExercises(
   db: SQLiteDatabase,
   trainingDayID: number,
   exercises: Exercise[],
-) {
-  for (const exercise of exercises) {
+): Promise<void> {
+  for (let i = 0; i < exercises.length; i++) {
+    const exercise = exercises[i];
+    const isNext = i < exercises.length - 1 ? 1 : 0; // Determine `next`
+
     const [result] = await db.executeSql(
       `SELECT id FROM exercises WHERE name = ?`,
       [exercise.name],
     );
 
-    const [rows] = result.rows.raw();
+    const rows = result.rows.raw();
+    const exerciseID = rows[0]?.id;
+
+    if (!exerciseID) {
+      console.error(`Exercise not found: ${exercise.name}`);
+      continue;
+    }
 
     const trainingDayExerciseID = await insertTrainingDayExercises(
       db,
       trainingDayID,
-      rows.id,
+      exerciseID,
+      isNext,
     );
+
+    // Insert sets for this exercise
     if (exercise.sets?.length > 0) {
       for (const set of exercise.sets) {
         await insertSets(db, trainingDayExerciseID, set);
@@ -340,11 +294,12 @@ export async function insertTrainingDayExercises(
   db: SQLiteDatabase,
   trainingDayID: number,
   exerciseID: number,
-) {
+  next: number,
+): Promise<number> {
   const query = `
-        INSERT INTO training_day_exercises (training_day_id, exercise_id)
-        VALUES (?, ?);`;
-  const [res] = await db.executeSql(query, [trainingDayID, exerciseID]);
+        INSERT INTO training_day_exercises (training_day_id, exercise_id, next)
+        VALUES (?, ?, ?);`;
+  const [res] = await db.executeSql(query, [trainingDayID, exerciseID, next]);
   return res.insertId;
 }
 
@@ -352,7 +307,7 @@ export async function insertSets(
   db: SQLiteDatabase,
   trainingDayExerciseID: number,
   set: ExerciseSet,
-) {
+): Promise<void> {
   const query = `
         INSERT INTO sets (training_day_exercise_id, weight, reps)
         VALUES (?, ?, ?);`;
@@ -377,15 +332,25 @@ export async function getNewWorkoutProgramType(db: SQLiteDatabase) {
   return 'A';
 }
 
-export async function fetchWeeks(db: SQLiteDatabase) {
+export async function fetchWeeks(
+  db: SQLiteDatabase,
+  type: 'surf' | 'standard',
+) {
   const workoutPrograms = await fetchWorkoutPrograms(db);
-  for (const program of workoutPrograms) {
+
+  const filteredPrograms = workoutPrograms.filter(program => {
+    if (type == 'surf') return program.type == 'C';
+    return program.type == 'A' || program.type == 'B';
+  });
+
+  for (const program of filteredPrograms) {
     program.sessions = await fetchTrainingDays(db, program.id);
     for (const session of program.sessions) {
       session.exercises = await fetchExercisesForTrainingDay(db, session.id);
     }
   }
-  return workoutPrograms;
+
+  return filteredPrograms;
 }
 
 export async function fetchWeekByID(

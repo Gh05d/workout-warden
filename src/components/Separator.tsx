@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import {StyleProp, StyleSheet, View, ViewStyle} from 'react-native';
 
 interface Props {
   style?: StyleProp<ViewStyle>;
@@ -11,12 +11,12 @@ interface Props {
  * @param {object} [style]
  * @component
  */
-const Separator: React.FC<Props> = ({ style, distance = 0 }) => (
-  <View style={[styles.border, { marginVertical: distance }, style]} />
+const Separator: React.FC<Props> = ({style, distance = 0}) => (
+  <View style={[styles.border, {marginVertical: distance}, style]} />
 );
 
 const styles = StyleSheet.create({
-  border: { borderTopWidth: StyleSheet.hairlineWidth },
+  border: {borderTopWidth: StyleSheet.hairlineWidth},
 });
 
 export default Separator;

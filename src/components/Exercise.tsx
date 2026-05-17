@@ -1,6 +1,6 @@
 import React from 'react';
 import {Button, Modal, Pressable, StyleSheet, View} from 'react-native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import MaterialIcons from '@react-native-vector-icons/material-icons';
 
 import Accordion from './Accordion';
 import {colors} from '../common/variables';

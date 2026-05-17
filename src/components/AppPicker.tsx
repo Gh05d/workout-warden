@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Button,
 } from 'react-native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import MaterialIcons from '@react-native-vector-icons/material-icons';
 
 import AppText from './AppText';
 import {colors} from '../common/variables';

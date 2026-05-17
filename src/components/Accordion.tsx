@@ -8,7 +8,7 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import MaterialIcons from '@react-native-vector-icons/material-icons';
 
 import {colors} from '../common/variables';
 import AppText from './AppText';

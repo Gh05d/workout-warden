@@ -5,6 +5,8 @@ export const colors = {
   secondary: '#4CAF50',
 };
 
+export const TRAINING_TYPE = 'TRAINING_TYPE';
+
 export const demotivationalQuotes = [
   "Don't worry about the world coming to an end today. It's already tomorrow in Australia.",
   "You're not lazy, you're just on energy-saving mode.",
@@ -79,14 +81,6 @@ export const demotivationalQuotes = [
 ];
 
 export const WEEKS = 'WEEKS';
-
-export const trainingDays = [
-  'Reverse Step Up Leg Day',
-  'Chest Pressing Upper Body Day',
-  'Mobility Day',
-  'Split Squat Leg Day',
-  'Shoulder Pressing Upper Body Day',
-];
 
 export const training = {
   A: {
@@ -648,4 +642,681 @@ export const training = {
       },
     ],
   },
+};
+
+export const surfTraining = {
+  startDate: Date.now(),
+  endDate: new Date(new Date().getTime() + 5 * 24 * 60 * 60 * 1000),
+  finished: false,
+  sessions: [
+    {
+      day: 'Lower Body',
+      finished: false,
+      exercises: [
+        {
+          name: 'Sled',
+          sled: true,
+          time: 300,
+          finished: false,
+          sets: [{reps: 1, weight: 20}],
+          video: 'https://www.youtube.com/watch?v=XJxex3TnTWo',
+        },
+        {
+          name: 'Tibialis Raise',
+          sets: [
+            {reps: 25, weight: 30},
+            {reps: 25, weight: 30},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=kIRvGGD21Zw',
+          next: true,
+        },
+        {
+          name: 'Straight Leg Calf Raise',
+          sets: [
+            {reps: 20, weight: 24},
+            {reps: 20, weight: 24},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=2SOQbnSJSbo',
+          next: true,
+        },
+        {
+          name: 'Bent Leg Calf Raise',
+          sets: [
+            {reps: 20, weight: 24},
+            {reps: 20, weight: 24},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=NIK_hmryfDg',
+        },
+        {
+          name: 'Petersen Step Up',
+          sets: [
+            {reps: 5, weight: 70},
+            {reps: 5, weight: 70},
+            {reps: 5, weight: 70},
+            {reps: 5, weight: 70},
+            {reps: 5, weight: 70},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=yuvRE6PsvJw',
+          next: true,
+        },
+        {
+          name: 'Split Squad',
+          sets: [
+            {reps: 5, weight: 14},
+            {reps: 5, weight: 14},
+            {reps: 5, weight: 14},
+            {reps: 5, weight: 14},
+            {reps: 5, weight: 14},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=Gx7i66uftV4',
+        },
+        {
+          name: 'VMO Squat',
+          sets: [
+            {reps: 20, weight: 14},
+            {reps: 20, weight: 14},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=TnOyAnu5xhE',
+        },
+        {
+          name: 'Big Toe Stretch',
+          sets: [
+            {reps: 1, weight: null},
+            {reps: 1, weight: null},
+          ],
+          sled: true,
+          time: 30,
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=tDVR_m9QpKE',
+          next: true,
+        },
+        {
+          name: 'L-Sit Progression',
+          sets: [
+            {reps: 1, weight: null},
+            {reps: 1, weight: null},
+          ],
+          sled: true,
+          time: 20,
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=IUZJoSP66HI',
+          next: true,
+        },
+        {
+          name: 'Couch Stretch Lounge',
+          sets: [
+            {reps: 8, weight: null},
+            {reps: 8, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=grrTL9jlrDc',
+          next: true,
+        },
+        {
+          name: 'Elephant Walk',
+          sets: [
+            {reps: 8, weight: null},
+            {reps: 8, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=qqMi-hJjMBk',
+          next: true,
+        },
+        {
+          name: 'Pigeon Pushup',
+          sets: [
+            {reps: 20, weight: null},
+            {reps: 20, weight: null},
+            {reps: 20, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=qIe4xUIY5Mc',
+          next: true,
+        },
+        {
+          name: 'Resting Squat',
+          sets: [
+            {reps: 1, weight: null},
+            {reps: 1, weight: null},
+          ],
+          finished: false,
+          sled: true,
+          time: 30,
+          video: 'https://www.youtube.com/watch?v=TnOyAnu5xhE',
+        },
+      ],
+    },
+    {
+      day: 'Upper Body and Stretching',
+      finished: false,
+      exercises: [
+        {
+          name: 'Sled',
+          sled: true,
+          time: 300,
+          finished: false,
+          sets: [{reps: 1, weight: 20}],
+          video: 'https://www.youtube.com/watch?v=XJxex3TnTWo',
+        },
+        {
+          name: 'Band Pull-Apart',
+          sets: [{reps: 20, weight: null}],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=stwYTTPXubo',
+        },
+        {
+          name: 'ATG Pushup',
+          sets: [
+            {reps: 20, weight: null},
+            {reps: 20, weight: null},
+          ],
+          finished: false,
+          next: true,
+          video: 'https://www.youtube.com/watch?v=stwYTTPXubo',
+        },
+        {
+          name: 'ATG Row',
+          sets: [
+            {reps: 20, weight: null},
+            {reps: 20, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=J-L3R7vBd8I',
+        },
+        {
+          name: 'Band Overhead Press',
+          sets: [
+            {reps: 10, weight: null},
+            {reps: 10, weight: null},
+          ],
+          finished: false,
+          next: true,
+          video: 'https://www.youtube.com/shorts/1-VfJqjYquQ',
+        },
+        {
+          name: 'Superman',
+          sets: [
+            {reps: 20, weight: null},
+            {reps: 20, weight: null},
+          ],
+          finished: false,
+          next: true,
+          video: 'https://www.youtube.com/shorts/KTWWh3GsyYw',
+        },
+        {
+          name: 'Seated Goodmorning',
+          sets: [
+            {reps: 20, weight: 20},
+            {reps: 20, weight: 20},
+          ],
+          next: true,
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=k2gpUHdRXS4',
+        },
+        {
+          name: 'QL Extension',
+          sets: [
+            {reps: 15, weight: 0},
+            {reps: 15, weight: 0},
+          ],
+          next: true,
+          finished: false,
+          hint: 'per side',
+          video: 'https://www.youtube.com/watch?v=YzomuSc93SM',
+        },
+        {
+          name: 'Wall Pullover',
+          sets: [
+            {reps: 15, weight: null},
+            {reps: 15, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/shorts/jCyWP32shXU',
+        },
+        {
+          name: 'Calf Stretch',
+          sets: [
+            {reps: 1, weight: null},
+            {reps: 1, weight: null},
+          ],
+          sled: true,
+          next: true,
+          time: 60,
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=mafo7o7OnFo',
+        },
+        {
+          name: 'Pancake',
+          sets: [
+            {reps: 20, weight: 30},
+            {reps: 20, weight: 30},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=EKSyDNx4atY',
+          next: true,
+        },
+        {
+          name: 'Couch Stretch Lounge',
+          sets: [
+            {reps: 8, weight: null},
+            {reps: 8, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=grrTL9jlrDc',
+        },
+      ],
+    },
+    {
+      day: 'Lower Body 2',
+      finished: false,
+      exercises: [
+        {
+          name: 'Sled',
+          sled: true,
+          time: 300,
+          finished: false,
+          sets: [{reps: 1, weight: 20}],
+          video: 'https://www.youtube.com/watch?v=XJxex3TnTWo',
+        },
+        {
+          name: 'Tibialis Raise',
+          sets: [
+            {reps: 25, weight: 30},
+            {reps: 25, weight: 30},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=kIRvGGD21Zw',
+          next: true,
+        },
+        {
+          name: 'Straight Leg Calf Raise',
+          sets: [
+            {reps: 20, weight: 24},
+            {reps: 20, weight: 24},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=2SOQbnSJSbo',
+          next: true,
+        },
+        {
+          name: 'Bent Leg Calf Raise',
+          sets: [
+            {reps: 20, weight: 24},
+            {reps: 20, weight: 24},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=NIK_hmryfDg',
+        },
+        {
+          name: 'Petersen Step Up',
+          sets: [
+            {reps: 5, weight: 70},
+            {reps: 5, weight: 70},
+            {reps: 5, weight: 70},
+            {reps: 5, weight: 70},
+            {reps: 5, weight: 70},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=yuvRE6PsvJw',
+          next: true,
+        },
+        {
+          name: 'Split Squad',
+          sets: [
+            {reps: 5, weight: 14},
+            {reps: 5, weight: 14},
+            {reps: 5, weight: 14},
+            {reps: 5, weight: 14},
+            {reps: 5, weight: 14},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=Gx7i66uftV4',
+        },
+        {
+          name: 'Nordic',
+          sets: [
+            {reps: 5, weight: null},
+            {reps: 5, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=6NCN6kOagfY',
+        },
+        {
+          name: 'Big Toe Stretch',
+          sets: [
+            {reps: 1, weight: null},
+            {reps: 1, weight: null},
+          ],
+          sled: true,
+          time: 30,
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=tDVR_m9QpKE',
+          next: true,
+        },
+        {
+          name: 'L-Sit Progression',
+          sets: [
+            {reps: 1, weight: null},
+            {reps: 1, weight: null},
+          ],
+          sled: true,
+          time: 20,
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=IUZJoSP66HI',
+          next: true,
+        },
+        {
+          name: 'Couch Stretch Lounge',
+          sets: [
+            {reps: 8, weight: null},
+            {reps: 8, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=grrTL9jlrDc',
+          next: true,
+        },
+        {
+          name: 'Elephant Walk',
+          sets: [
+            {reps: 8, weight: null},
+            {reps: 8, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=qqMi-hJjMBk',
+          next: true,
+        },
+        {
+          name: 'Pigeon Pushup',
+          sets: [
+            {reps: 20, weight: null},
+            {reps: 20, weight: null},
+            {reps: 20, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=qIe4xUIY5Mc',
+          next: true,
+        },
+        {
+          name: 'Resting Squat',
+          sets: [
+            {reps: 1, weight: null},
+            {reps: 1, weight: null},
+          ],
+          finished: false,
+          sled: true,
+          time: 30,
+          video: 'https://www.youtube.com/watch?v=TnOyAnu5xhE',
+        },
+      ],
+    },
+    {
+      day: 'Upper Body and Stretching 2',
+      finished: false,
+      exercises: [
+        {
+          name: 'Sled',
+          sled: true,
+          time: 300,
+          finished: false,
+          sets: [{reps: 1, weight: 20}],
+          video: 'https://www.youtube.com/watch?v=XJxex3TnTWo',
+        },
+        {
+          name: 'Band Pull-Apart',
+          sets: [{reps: 20, weight: null}],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=stwYTTPXubo',
+        },
+        {
+          name: 'ATG Pushup',
+          sets: [
+            {reps: 20, weight: null},
+            {reps: 20, weight: null},
+          ],
+          finished: false,
+          next: true,
+          video: 'https://www.youtube.com/watch?v=stwYTTPXubo',
+        },
+        {
+          name: 'ATG Row',
+          sets: [
+            {reps: 20, weight: null},
+            {reps: 20, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=J-L3R7vBd8I',
+        },
+        {
+          name: 'Band Overhead Press',
+          sets: [
+            {reps: 10, weight: null},
+            {reps: 10, weight: null},
+          ],
+          finished: false,
+          next: true,
+          video: 'https://www.youtube.com/shorts/1-VfJqjYquQ',
+        },
+        {
+          name: 'Superman',
+          sets: [
+            {reps: 20, weight: null},
+            {reps: 20, weight: null},
+          ],
+          finished: false,
+          next: true,
+          video: 'https://www.youtube.com/shorts/KTWWh3GsyYw',
+        },
+        {
+          name: 'Seated Goodmorning',
+          sets: [
+            {reps: 20, weight: 20},
+            {reps: 20, weight: 20},
+          ],
+          next: true,
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=k2gpUHdRXS4',
+        },
+        {
+          name: 'QL Extension',
+          sets: [
+            {reps: 15, weight: 0},
+            {reps: 15, weight: 0},
+          ],
+          next: true,
+          finished: false,
+          hint: 'per side',
+          video: 'https://www.youtube.com/watch?v=YzomuSc93SM',
+        },
+        {
+          name: 'Wall Pullover',
+          sets: [
+            {reps: 15, weight: null},
+            {reps: 15, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/shorts/jCyWP32shXU',
+        },
+        {
+          name: 'Calf Stretch',
+          sets: [
+            {reps: 1, weight: null},
+            {reps: 1, weight: null},
+          ],
+          sled: true,
+          next: true,
+          time: 60,
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=mafo7o7OnFo',
+        },
+        {
+          name: 'Pancake',
+          sets: [
+            {reps: 20, weight: 30},
+            {reps: 20, weight: 30},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=EKSyDNx4atY',
+          next: true,
+        },
+        {
+          name: 'Couch Stretch Lounge',
+          sets: [
+            {reps: 8, weight: null},
+            {reps: 8, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=grrTL9jlrDc',
+        },
+      ],
+    },
+    {
+      day: 'Lower Body 3',
+      finished: false,
+      exercises: [
+        {
+          name: 'Sled',
+          sled: true,
+          time: 300,
+          finished: false,
+          sets: [{reps: 1, weight: 20}],
+          video: 'https://www.youtube.com/watch?v=XJxex3TnTWo',
+        },
+        {
+          name: 'Tibialis Raise',
+          sets: [
+            {reps: 25, weight: 30},
+            {reps: 25, weight: 30},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=kIRvGGD21Zw',
+          next: true,
+        },
+        {
+          name: 'Straight Leg Calf Raise',
+          sets: [
+            {reps: 20, weight: 24},
+            {reps: 20, weight: 24},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=2SOQbnSJSbo',
+          next: true,
+        },
+        {
+          name: 'Bent Leg Calf Raise',
+          sets: [
+            {reps: 20, weight: 24},
+            {reps: 20, weight: 24},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=NIK_hmryfDg',
+        },
+        {
+          name: 'Petersen Step Up',
+          sets: [
+            {reps: 5, weight: 70},
+            {reps: 5, weight: 70},
+            {reps: 5, weight: 70},
+            {reps: 5, weight: 70},
+            {reps: 5, weight: 70},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=yuvRE6PsvJw',
+          next: true,
+        },
+        {
+          name: 'Split Squad',
+          sets: [
+            {reps: 5, weight: 14},
+            {reps: 5, weight: 14},
+            {reps: 5, weight: 14},
+            {reps: 5, weight: 14},
+            {reps: 5, weight: 14},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=Gx7i66uftV4',
+        },
+        {
+          name: 'VMO Squat',
+          sets: [
+            {reps: 20, weight: 14},
+            {reps: 20, weight: 14},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=TnOyAnu5xhE',
+        },
+        {
+          name: 'Big Toe Stretch',
+          sets: [
+            {reps: 1, weight: null},
+            {reps: 1, weight: null},
+          ],
+          sled: true,
+          time: 30,
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=tDVR_m9QpKE',
+          next: true,
+        },
+        {
+          name: 'L-Sit Progression',
+          sets: [
+            {reps: 1, weight: null},
+            {reps: 1, weight: null},
+          ],
+          sled: true,
+          time: 20,
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=IUZJoSP66HI',
+          next: true,
+        },
+        {
+          name: 'Couch Stretch Lounge',
+          sets: [
+            {reps: 8, weight: null},
+            {reps: 8, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=grrTL9jlrDc',
+          next: true,
+        },
+        {
+          name: 'Elephant Walk',
+          sets: [
+            {reps: 8, weight: null},
+            {reps: 8, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=qqMi-hJjMBk',
+          next: true,
+        },
+        {
+          name: 'Pigeon Pushup',
+          sets: [
+            {reps: 20, weight: null},
+            {reps: 20, weight: null},
+            {reps: 20, weight: null},
+          ],
+          finished: false,
+          video: 'https://www.youtube.com/watch?v=qIe4xUIY5Mc',
+          next: true,
+        },
+        {
+          name: 'Resting Squat',
+          sets: [
+            {reps: 1, weight: null},
+            {reps: 1, weight: null},
+          ],
+          finished: false,
+          sled: true,
+          time: 30,
+          video: 'https://www.youtube.com/watch?v=TnOyAnu5xhE',
+        },
+      ],
+    },
+  ],
 };

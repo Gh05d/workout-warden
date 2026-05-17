@@ -36,9 +36,9 @@ const Statistics: React.FC<BaseProps> = () => {
     const res = await fetchExerciseProgress(db, exercise);
 
     const test = res.reduce((acc, cV) => {
-      // If there's already an entry for this start date,
-      // update it only if the current weight is higher
-      if (acc[cV.start_date]) {
+      if (cV.weight == null) return acc;
+
+      if (acc[cV.start_date] !== undefined) {
         acc[cV.start_date] = Math.max(acc[cV.start_date], cV.weight);
       } else {
         acc[cV.start_date] = cV.weight;
@@ -49,7 +49,6 @@ const Statistics: React.FC<BaseProps> = () => {
 
     let j = 0;
 
-    // Transforming the data for the chart, adding only the highest weight per day
     const transformedData = Object.keys(test).map(key => ({
       day: ++j,
       weight: test[key],

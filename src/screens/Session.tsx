@@ -1,6 +1,6 @@
 import React from 'react';
 import {Button, ScrollView, StyleSheet, View} from 'react-native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import MaterialIcons from '@react-native-vector-icons/material-icons';
 import {useFocusEffect} from '@react-navigation/native';
 
 import Loading from '../components/Loading';
@@ -9,7 +9,7 @@ import Exercise from '../components/Exercise';
 import LoadingModal from '../components/LoadingModal';
 import Toast from '../components/Toast';
 
-import {colors} from '../common/variables';
+import {colors, TRAINING_TYPE} from '../common/variables';
 import {displayDate} from '../common/functions';
 import {
   fetchWeekByID,
@@ -18,6 +18,7 @@ import {
   getNewWorkoutProgramType,
   insertWorkoutProgram,
 } from '../common/databaseService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface RouteParams {
   weekID: number;
@@ -59,6 +60,8 @@ const Session: React.FC<BaseProps> = ({navigation, route}) => {
   useFocusEffect(
     React.useCallback(() => {
       (async function init() {
+        const trainingType = await AsyncStorage.getItem(TRAINING_TYPE);
+
         setLoading(true);
         try {
           const db = await getDBConnection();
@@ -69,7 +72,7 @@ const Session: React.FC<BaseProps> = ({navigation, route}) => {
             setTrainingWeek(week);
             setCurrentWeekID(weekID);
           } else {
-            const weeks = await fetchWeeks(db);
+            const weeks = await fetchWeeks(db, trainingType);
 
             if (weeks?.length) {
               const latestWeek = weeks.pop();
@@ -80,7 +83,7 @@ const Session: React.FC<BaseProps> = ({navigation, route}) => {
               // No weeks found, insert new workout program
               const type = await getNewWorkoutProgramType(db);
               await insertWorkoutProgram(db, type);
-              const [initialWeek] = await fetchWeeks(db);
+              const [initialWeek] = await fetchWeeks(db, trainingType);
               setTrainingWeek(initialWeek);
               setCurrentWeekID(initialWeek.id);
             }
@@ -153,10 +156,12 @@ const Session: React.FC<BaseProps> = ({navigation, route}) => {
       style={styles.root}
       contentContainerStyle={{paddingBottom: 30, gap: 30}}>
       {trainingWeek?.sessions[day].exercises?.map(exercise => (
-        <View style={{alignItems: 'center'}} key={exercise.id}>
+        <View
+          style={{alignItems: 'center', position: 'relative'}}
+          key={exercise.id}>
           <Exercise {...exercise} />
           {!!exercise.next && (
-            <View style={{marginHorizontal: 10, marginTop: 20}}>
+            <View style={{position: 'absolute', bottom: -30}}>
               <MaterialIcons name="repeat" size={30} color={colors.primary} />
             </View>
           )}
