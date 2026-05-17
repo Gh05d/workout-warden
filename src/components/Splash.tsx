@@ -9,7 +9,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import AppText from './AppText';
-import {colors} from '../common/variables';
+import {colors} from '../common/theme';
 
 interface Props {
   initiated: boolean;

@@ -8,7 +8,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import AppText from './AppText';
-import {colors} from '../common/variables';
+import {colors} from '../common/theme';
 
 interface Props {
   /** The text to be displayed. Defaults to Loading */
