@@ -31,4 +31,25 @@ export const EXERCISES: ExerciseSeed[] = [
   {slug: 'seated-goodmorning',       name: 'Seated Goodmorning'},
   {slug: 'ql-extension',             name: 'QL Extension'},
   {slug: 'wall-pullover',            name: 'Wall Pullover'},
+
+  // ===== Legacy (v1 Standard plan) =====
+  // Lower body / sled
+  {slug: 'sled',                     name: 'Sled'},
+  {slug: 'poliquin-step-up',         name: 'Poliquin Step Up'},
+  {slug: 'split-squad',              name: 'Split Squad'},
+  {slug: 'hip-flexors',              name: 'Hip Flexors'},
+  {slug: 'reverse-nordic',           name: 'Reverse Nordic'},
+
+  // Upper body / press / pull
+  {slug: 'chest-press',              name: 'Chest Press'},
+  {slug: 'pullup',                   name: 'Pullup'},
+  {slug: 'shoulder-press',           name: 'Shoulder Press'},
+  {slug: 'external-rotation',        name: 'External Rotation'},
+  {slug: 'neck-flexion',             name: 'Neck Flexion'},
+  {slug: 'pullover',                 name: 'Pullover'},
+
+  // Mobility / stretches
+  {slug: 'butterfly-stretch',        name: 'Butterfly Stretch'},
+  {slug: 'jefferson-curl',           name: 'Jefferson Curl'},
+  {slug: 'couch-stretch-lounge',     name: 'Couch Stretch Lounge'},
 ];
