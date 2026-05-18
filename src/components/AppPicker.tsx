@@ -75,8 +75,8 @@ const AppPicker: React.FC<Props> = props => {
           </ScrollView>
 
           <Button
-            accessibilityLabel="Abbrechen"
-            title="Abbrechen"
+            accessibilityLabel="Cancel"
+            title="Cancel"
             onPress={close}
           />
         </KeyboardAvoidingView>

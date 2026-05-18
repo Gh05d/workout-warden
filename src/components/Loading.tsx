@@ -29,7 +29,7 @@ interface Props {
  * @component
  */
 const Loading: React.FC<Props> = ({
-  text = 'Lade Seite',
+  text = 'Loading',
   inline,
   style,
   textStyle,

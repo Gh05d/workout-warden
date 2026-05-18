@@ -78,14 +78,14 @@ const Weeks: React.FC<BaseProps> = () => {
     setRefreshing(false);
   }
 
-  if (loading) return <Loading text="Lade Wochen" />;
+  if (loading) return <Loading text="Loading weeks" />;
   if (initError) return <ErrorComp error={initError} />;
 
   return (
     <View style={styles.container}>
       {weeks.length === 0 ? (
         <View style={styles.empty}>
-          <AppText>Noch keine Daten</AppText>
+          <AppText>No weeks yet</AppText>
         </View>
       ) : (
         <FlatList

@@ -30,7 +30,7 @@ const Youtube: React.FC<Props> = ({video, close}) => {
         onReady={() => setLoading(false)}
       />
 
-      {loading && <Loading text="Lade Video" />}
+      {loading && <Loading text="Loading video" />}
 
       {!loading && (
         <View style={{paddingHorizontal: 16}}>

@@ -114,24 +114,29 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
   if (!summary) return <ErrorComp error={new Error('No active plan')} />;
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.content}>
-      <PlanCard plan={summary.activePlan} onPress={() => setModalVisible(true)} />
-
-      <NextSessionCard
-        currentWeek={summary.currentWeek}
-        nextSession={summary.nextSession}
-        onStartSession={handleStartSession}
-        onCreateNextWeek={handleCreateNextWeek}
-      />
-
-      {summary.currentWeek && !summary.currentWeek.finished && (
-        <ProgressCard
-          week={summary.currentWeek}
-          onPress={() => navigation.navigate('Weeks')}
+    <View style={styles.root}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        <PlanCard
+          plan={summary.activePlan}
+          onPress={() => setModalVisible(true)}
         />
-      )}
 
-      <VibeCard puppy={puppy} />
+        <NextSessionCard
+          currentWeek={summary.currentWeek}
+          nextSession={summary.nextSession}
+          onStartSession={handleStartSession}
+          onCreateNextWeek={handleCreateNextWeek}
+        />
+
+        {summary.currentWeek && !summary.currentWeek.finished && (
+          <ProgressCard
+            week={summary.currentWeek}
+            onPress={() => navigation.navigate('Weeks')}
+          />
+        )}
+
+        <VibeCard puppy={puppy} />
+      </ScrollView>
 
       <View style={styles.dataSection}>
         <AppText style={styles.dataLabel}>Data management</AppText>
@@ -188,14 +193,22 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
           onClose={() => setToastError(null)}
         />
       )}
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   root: {flex: 1, backgroundColor: '#f5f5f7'},
-  content: {padding: 16, gap: 12, paddingBottom: 32},
-  dataSection: {marginTop: 16},
+  scroll: {flex: 1},
+  content: {padding: 16, gap: 12, paddingBottom: 16},
+  dataSection: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#ddd',
+    backgroundColor: '#f5f5f7',
+  },
   dataLabel: {
     fontSize: 12,
     color: '#999',
