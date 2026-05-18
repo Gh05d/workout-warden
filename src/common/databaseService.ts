@@ -496,6 +496,12 @@ export async function finishSession(db: SQLiteDatabase, sessionId: number): Prom
 
 // ---------- Statistics ----------
 
+export interface HomeSummary {
+  activePlan: Plan;
+  currentWeek: Week | null;
+  nextSession: Session | null;
+}
+
 export interface StatsPoint {
   date: string;
   max_weight: number | null;
@@ -525,4 +531,62 @@ export async function fetchExerciseStats(db: SQLiteDatabase, exerciseSlug: strin
 export async function fetchAllExerciseSlugs(db: SQLiteDatabase): Promise<{slug: string; name: string}[]> {
   const [res] = await db.executeSql(`SELECT slug, name FROM exercises ORDER BY name ASC`);
   return res.rows.raw();
+}
+
+export async function fetchHomeSummary(
+  db: SQLiteDatabase,
+): Promise<HomeSummary | null> {
+  const activePlanId = await fetchActivePlanId(db);
+  if (activePlanId == null) return null;
+
+  const [planRes] = await db.executeSql(
+    `SELECT id, slug, name, description FROM plans WHERE id = ?`,
+    [activePlanId],
+  );
+  if (planRes.rows.length === 0) return null;
+  const activePlan = planRes.rows.item(0) as Plan;
+
+  const [weekRes] = await db.executeSql(
+    `SELECT w.id AS week_id, w.created_at, w.finished AS week_finished,
+            s.id AS session_id, s.day_index, s.weekday_label, s.session_name,
+            s.trained_at, s.finished AS session_finished, s.notes
+     FROM weeks w
+     LEFT JOIN sessions s ON s.week_id = w.id
+     WHERE w.plan_id = ?
+       AND w.id = (SELECT MAX(id) FROM weeks WHERE plan_id = ?)
+     ORDER BY s.day_index ASC`,
+    [activePlanId, activePlanId],
+  );
+
+  const rows = weekRes.rows.raw();
+  if (rows.length === 0) {
+    return {activePlan, currentWeek: null, nextSession: null};
+  }
+
+  const first = rows[0];
+  const sessions: Session[] = rows
+    .filter(r => r.session_id != null)
+    .map(r => ({
+      id: r.session_id,
+      week_id: r.week_id,
+      day_index: r.day_index,
+      weekday_label: r.weekday_label,
+      session_name: r.session_name,
+      trained_at: r.trained_at,
+      finished: r.session_finished,
+      notes: r.notes,
+      exercises: [],
+    }));
+
+  const currentWeek: Week = {
+    id: first.week_id,
+    plan_id: activePlanId,
+    created_at: first.created_at,
+    finished: first.week_finished,
+    sessions,
+  };
+
+  const nextSession = sessions.find(s => !s.finished) ?? null;
+
+  return {activePlan, currentWeek, nextSession};
 }
