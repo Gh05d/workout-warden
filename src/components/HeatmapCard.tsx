@@ -6,6 +6,7 @@
 
 import React from 'react';
 import {StyleSheet, View, useWindowDimensions} from 'react-native';
+import Reanimated, {FadeIn} from 'react-native-reanimated';
 
 import AppText from './AppText';
 import {colors} from '../common/theme';
@@ -105,14 +106,20 @@ const HeatmapCard: React.FC<Props> = ({data}) => {
       <View style={styles.grid}>
         {grid.map((row, rowIdx) => (
           <View key={rowIdx} style={[styles.row, {gap: GAP}]}>
-            {row.map(date => {
+            {row.map((date, weekIdx) => {
               const key = isoDate(date);
               const count = data.get(key);
               const isToday = key === todayKey;
               const isFuture = date > today;
+              // Stagger left-to-right (oldest → today) with a small per-day
+              // offset so the grid "fills up" toward the current week.
+              // ~25ms per column + ~3ms per row → ~395ms total stagger over
+              // 16 weeks × 7 days. Cell fade itself is 280ms.
+              const delay = weekIdx * 25 + rowIdx * 3;
               return (
-                <View
+                <Reanimated.View
                   key={key}
+                  entering={FadeIn.delay(delay).duration(280)}
                   style={[
                     {
                       width: cellSize,
