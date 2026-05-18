@@ -10,6 +10,7 @@ import {
 } from '@react-native-documents/picker';
 
 import AppText from '../components/AppText';
+import HeatmapCard from '../components/HeatmapCard';
 import Loading from '../components/Loading';
 import NextSessionCard from '../components/NextSessionCard';
 import PlanCard from '../components/PlanCard';
@@ -19,10 +20,13 @@ import TacticalButton from '../components/TacticalButton';
 import Toast from '../components/Toast';
 import VibeCard from '../components/VibeCard';
 
+import {isoDate, startOfWeek} from '../components/heatmapMath';
+
 import {colors} from '../common/theme';
 import {
   createWeek,
   exportDatabase,
+  fetchHeatmapData,
   fetchHomeSummary,
   fetchPlans,
   getDBConnection,
@@ -38,6 +42,7 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
 
   const [summary, setSummary] = React.useState<HomeSummaryShape | null>(null);
   const [plans, setPlans] = React.useState<Plan[]>([]);
+  const [heatmap, setHeatmap] = React.useState<Map<string, number>>(new Map());
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
   const [modalVisible, setModalVisible] = React.useState(false);
@@ -46,16 +51,31 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
 
   const refresh = React.useCallback(async () => {
     const db = await getDBConnection();
-    let [s, p] = await Promise.all([fetchHomeSummary(db), fetchPlans(db)]);
+    // Compute the heatmap window start: 15 full weeks before this Monday, so
+    // the grid (16 columns × 7 days) always lines up with full ISO weeks.
+    const heatmapFrom = new Date(startOfWeek(new Date()));
+    heatmapFrom.setDate(heatmapFrom.getDate() - 15 * 7);
+    const fromKey = isoDate(heatmapFrom);
+
+    let [s, p, h] = await Promise.all([
+      fetchHomeSummary(db),
+      fetchPlans(db),
+      fetchHeatmapData(db, fromKey),
+    ]);
     // Self-heal: an imported DB may be missing the active_plan_id setting
     // and/or the Surf/Strength seed plans. Re-run initDB once to repair.
     if (s == null) {
       await initDB();
       const db2 = await getDBConnection();
-      [s, p] = await Promise.all([fetchHomeSummary(db2), fetchPlans(db2)]);
+      [s, p, h] = await Promise.all([
+        fetchHomeSummary(db2),
+        fetchPlans(db2),
+        fetchHeatmapData(db2, fromKey),
+      ]);
     }
     setSummary(s);
     setPlans(p);
+    setHeatmap(h);
   }, []);
 
   useFocusEffect(
@@ -162,6 +182,8 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
                 onPress={() => navigation.navigate('Weeks')}
               />
             )}
+
+            <HeatmapCard data={heatmap} />
           </>
         )}
 

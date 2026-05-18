@@ -722,6 +722,30 @@ export async function fetchExerciseStats(
   return res.rows.raw();
 }
 
+/** Heatmap source: count of trained sessions per LOCAL day, from `fromLocalDate`
+ * (YYYY-MM-DD) onward. Plan-agnostic — every plan's sessions contribute. Uses
+ * SQLite's `'localtime'` modifier so the bucket boundary matches the device,
+ * not UTC; `today` would otherwise drift by ±1 day for users near midnight. */
+export async function fetchHeatmapData(
+  db: SQLiteDatabase,
+  fromLocalDate: string,
+): Promise<Map<string, number>> {
+  const [res] = await db.executeSql(
+    `SELECT DATE(s.trained_at, 'localtime') AS date, COUNT(*) AS sessions
+     FROM sessions s
+     WHERE s.trained_at IS NOT NULL
+       AND DATE(s.trained_at, 'localtime') >= ?
+     GROUP BY DATE(s.trained_at, 'localtime')
+     ORDER BY date ASC`,
+    [fromLocalDate],
+  );
+  const map = new Map<string, number>();
+  for (const row of res.rows.raw()) {
+    map.set(row.date, row.sessions);
+  }
+  return map;
+}
+
 export async function fetchAllExerciseSlugs(
   db: SQLiteDatabase,
 ): Promise<{slug: string; name: string}[]> {
