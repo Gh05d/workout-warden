@@ -1,7 +1,7 @@
 // src/Routes.tsx
 import React from 'react';
 import {ActivityIndicator, StatusBar, useColorScheme, View} from 'react-native';
-import {DefaultTheme, NavigationContainer, Theme} from '@react-navigation/native';
+import {DefaultTheme, NavigationContainer, Theme, useFocusEffect} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createMaterialTopTabNavigator} from '@react-navigation/material-top-tabs';
 import MaterialIcons from '@react-native-vector-icons/material-icons';
@@ -30,17 +30,19 @@ const renderTabBarIcon =
 const SessionsTabs: React.FC<BaseProps> = ({route}) => {
   const [days, setDays] = React.useState<PlanDay[] | null>(null);
 
-  React.useEffect(() => {
-    (async () => {
-      const db = await getDBConnection();
-      const planId = await fetchActivePlanId(db);
-      if (planId == null) {
-        setDays([]);
-        return;
-      }
-      setDays(await fetchPlanDays(db, planId));
-    })();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      (async () => {
+        const db = await getDBConnection();
+        const planId = await fetchActivePlanId(db);
+        if (planId == null) {
+          setDays([]);
+          return;
+        }
+        setDays(await fetchPlanDays(db, planId));
+      })();
+    }, []),
+  );
 
   if (days === null) {
     return (
