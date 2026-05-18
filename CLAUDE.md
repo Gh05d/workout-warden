@@ -29,11 +29,21 @@ The `transform-remove-console` babel plugin strips `console.*` from production b
 
 Package manager: yarn 3.6.4 (berry) with `nodeLinker: node-modules`. `npm` also works because of the standard `node_modules` layout.
 
+Yarn berry is wired but **broken** — `.yarnrc.yml` points at a missing `.yarn/releases/yarn-3.6.4.cjs`. Don't use `yarn <cmd>`. Use `npm run <script>` for package.json scripts, or call tools directly via `node_modules/.bin/<tool>` (jest, eslint, tsc).
+
+### Sideloading to the Pixel 7
+
+`adb -s 34061FDH2005AW install -r app-release.apk` reliably prints `failed: Performing Streamed Install` even on successful installs. Verify the install actually happened with `adb -s 34061FDH2005AW shell dumpsys package com.workoutwarden | grep -E "versionName|lastUpdateTime"`. The USB connection on this device drops frequently — re-issue the `dumpsys` command after a few seconds if it returns nothing.
+
+Always bump the version *before* sideloading so `versionName` is the verification: `npm version patch --no-git-tag-version && node update-android-version.js`.
+
 ## Architecture
 
 ### Data model (v2)
 
-Ten SQLite tables defined as `CREATE TABLE IF NOT EXISTS` statements in `src/common/databaseService.ts:SCHEMA`. Foreign keys are enforced via `PRAGMA foreign_keys = ON` on every connection. There is no schema versioning and no migration framework: the schema is treated as fixed for the v2 line.
+Ten SQLite tables defined as `CREATE TABLE IF NOT EXISTS` statements in `src/common/databaseService.ts:SCHEMA`. Foreign keys are enforced via `PRAGMA foreign_keys = ON` on every connection.
+
+There is no schema versioning framework. New columns are added via the idempotent pattern at the top of `seedDB` — `try { ALTER TABLE … ADD COLUMN … } catch {}` — which is a no-op on fresh installs (column already exists in CREATE TABLE DDL) and a one-shot migration on upgrades. Use this sparingly; structural changes still need import-legacy.ts.
 
 **Template side** (immutable catalogue — populated from seeds, never edited by the user):
 
@@ -138,6 +148,26 @@ The script is meant to run once on a developer machine, producing a `warden.db` 
 - `@react-native-async-storage+async-storage+3.0.2.patch` — registers `mavenLocal()` / `local_repo` so async-storage 3.x resolves on AGP setups that don't expose the React Native Maven repo to library modules.
 
 Both patches must travel with the repo; CI / fresh clones will fail to assemble Android without them.
+
+## Visual language
+
+The in-app aesthetic is "Tactical Logbook": dark surfaces (`colors.ink`), orange accents (`colors.primary`), green for completion, square corners, 1px `colors.rule` hairlines, ALL-CAPS labels with `letterSpacing: 1.4–2`. No soft drop-shadows, no rounded-12 pastel cards. Use `TacticalButton` instead of native `<Button />`. Use tokens from `src/common/theme.ts` — don't introduce new hex literals in components.
+
+Per-plan colour identity comes from `planColor(planId)` (palette in `src/common/planColor.ts`). Reuse the same pill shape for plan tags across Home / Weeks / PlanSwitcher so visual identity is stable.
+
+## Android quirks
+
+- **TextInput text gets clipped / pushed up** on Android. Always set `paddingVertical: 0`, `textAlignVertical: 'center'`, `includeFontPadding: false` on numeric inputs (see `Exercise.tsx` `numField` and `InlineTimer.tsx`).
+- **Accordion-style open/close** must use `react-native-reanimated` (`FadeIn` + `FadeOut` + `LinearTransition`). Plain `LayoutAnimation` is flaky under Fabric / RN 0.85 — silently no-ops on body height.
+- **Adaptive launcher icon** foregrounds must be full-bleed (no white padding). To regenerate from `assets/icon.png`, use the Python+PIL script pattern that writes to `mipmap-{mdpi…xxxhdpi}/ic_launcher{,_foreground,_round}.png` at 48/72/96/144/192 (legacy) and 108/162/216/324/432 (adaptive).
+
+## Navigation gotcha
+
+`navigation.navigate('Sessions', {screen: <name>, params})` only works when `<name>` exists as a `SubTab.Screen` in the Sessions top-tab navigator, and those screens are generated from the **currently active plan's** `plan_days`. Navigating to a session of a different plan via this form silently no-ops the params → `Session.tsx` falls back to "newest week of active plan". For cross-plan / historical session access, render `SessionScreen` directly in a `<Modal>` with `weekID` + `day_index` props (see `Weeks.tsx`'s session-detail modal).
+
+## TypeScript errors
+
+Treat TS errors on imports from third-party libraries as **real contracts**, not pre-existing noise. TS1192 "no default export" on `@dr.pogodin/react-native-fs` was a real runtime bug (`undefined.copyFile`), not a config quirk. Check the library's actual export shape before dismissing as noise.
 
 ## Code style
 

@@ -79,7 +79,9 @@ const styles = StyleSheet.create({
   barEmpty: {height: '100%'},
   barLabel: {
     position: 'absolute',
-    alignSelf: 'center',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
     fontSize: 12,
     color: '#222',
     letterSpacing: 1,

@@ -1,6 +1,7 @@
 // src/screens/Session.tsx
 import React from 'react';
-import {ScrollView, StyleSheet, View} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, View} from 'react-native';
+import MaterialIcons from '@react-native-vector-icons/material-icons';
 import {useFocusEffect} from '@react-navigation/native';
 
 import Loading from '../components/Loading';
@@ -57,8 +58,31 @@ function groupByCircuit(exercises: ExerciseInstance[]): Array<{
   return out;
 }
 
-const SessionScreen: React.FC<BaseProps> = ({navigation, route}) => {
-  const {weekID, day_index} = route.params as RouteParams;
+interface OwnProps {
+  /** Override route.params.weekID when used standalone (Modal mode). */
+  weekID?: number;
+  /** Override route.params.day_index when used standalone. */
+  day_index?: number;
+  /** When provided, the component renders in Modal mode: shows a header bar
+   * with the title + close X, skips the parent navigation title-setter, and
+   * renders a CLOSE button at the bottom of the scroll. */
+  onClose?: () => void;
+}
+
+const SessionScreen: React.FC<Partial<BaseProps> & OwnProps> = ({
+  navigation,
+  route,
+  weekID: weekIDProp,
+  day_index: dayIndexProp,
+  onClose,
+}) => {
+  const params = (route?.params as RouteParams | undefined) ?? {
+    day_index: 0,
+    title: '',
+  };
+  const weekID = weekIDProp ?? params.weekID;
+  const day_index = dayIndexProp ?? params.day_index;
+  const isModal = onClose != null;
 
   const [currentWeek, setCurrentWeek] = React.useState<Week | null>(null);
   const [history, setHistory] = React.useState<Map<number, ExerciseHistory>>(
@@ -118,19 +142,27 @@ const SessionScreen: React.FC<BaseProps> = ({navigation, route}) => {
     s => s.day_index === day_index,
   );
 
+  // Compute a human title locally — used both by the modal header and by the
+  // parent-navigator setOptions call when hosted as a screen.
+  const headerTitle = React.useMemo(() => {
+    if (!currentWeek) return '';
+    const dates = currentWeek.sessions
+      .map(s => s.trained_at)
+      .filter((d): d is string => !!d);
+    const range =
+      dates.length === 0
+        ? ''
+        : ` (${dates[0].slice(0, 10)} – ${dates[dates.length - 1].slice(0, 10)})`;
+    return `Week ${currentWeek.id}${range}`;
+  }, [currentWeek]);
+
   useFocusEffect(
     React.useCallback(() => {
-      const parent = navigation.getParent();
-      if (!parent || !currentWeek) return;
-      const dates = currentWeek.sessions
-        .map(s => s.trained_at)
-        .filter((d): d is string => !!d);
-      const range =
-        dates.length === 0
-          ? ''
-          : ` (${dates[0].slice(0, 10)} – ${dates[dates.length - 1].slice(0, 10)})`;
-      parent.setOptions({title: `Week ${currentWeek.id}${range}`});
-    }, [navigation, currentWeek]),
+      // Modal mode owns its own header bar; don't write into a parent navigator.
+      if (isModal || !navigation || !headerTitle) return;
+      const target = navigation.getParent() ?? navigation;
+      target.setOptions({title: headerTitle});
+    }, [isModal, navigation, headerTitle]),
   );
 
   async function handleFinish() {
@@ -181,46 +213,75 @@ const SessionScreen: React.FC<BaseProps> = ({navigation, route}) => {
   const progressPct = total === 0 ? 0 : Math.round((done / total) * 100);
 
   return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={{paddingBottom: 30, gap: 30}}>
-      <View style={styles.progressPill}>
-        <View style={[styles.progressFill, {width: `${progressPct}%`}]} />
-        <View style={styles.progressContent}>
-          <AppText bold style={styles.progressText}>
-            {`${done} / ${total} DONE`}
+    <View style={styles.modalRoot}>
+      {isModal && (
+        <View style={styles.modalTopBar}>
+          <Pressable
+            onPress={onClose}
+            hitSlop={12}
+            accessibilityLabel="Close session"
+            style={styles.modalTopBtn}>
+            <MaterialIcons name="close" size={22} color="#FFFFFF" />
+          </Pressable>
+          <AppText bold style={styles.modalTitle} numberOfLines={1}>
+            {headerTitle.toUpperCase()}
           </AppText>
-          <AppText style={styles.progressPct}>{`${progressPct}%`}</AppText>
+          <View style={styles.modalTopBtn} />
         </View>
-      </View>
+      )}
 
-      {groupByCircuit(currentSession.exercises).map((group, gi) => (
-        <View key={gi} style={group.circuit_rounds ? styles.circuit : null}>
-          {group.circuit_rounds && (
-            <View style={styles.circuitBadge}>
-              <AppText bold>× {group.circuit_rounds} rounds</AppText>
-            </View>
-          )}
-          {group.exercises.map(ex => (
-            <Exercise
-              key={ex.id}
-              exercise={ex}
-              history={history.get(ex.exercise_id)}
-              onFinishedChange={isDone =>
-                setFinishedDelta(d => d + (isDone ? 1 : -1))
-              }
-            />
-          ))}
+      <ScrollView
+        style={styles.root}
+        contentContainerStyle={{paddingBottom: 30, gap: 30}}>
+        <View style={styles.progressPill}>
+          <View style={[styles.progressFill, {width: `${progressPct}%`}]} />
+          <View style={styles.progressContent}>
+            <AppText bold style={styles.progressText}>
+              {`${done} / ${total} DONE`}
+            </AppText>
+            <AppText style={styles.progressPct}>{`${progressPct}%`}</AppText>
+          </View>
         </View>
-      ))}
 
-      <TacticalButton
-        variant={currentSession.finished ? 'green' : 'primary'}
-        icon={currentSession.finished ? 'check-circle' : 'flag'}
-        onPress={handleFinish}
-        title={currentSession.finished ? 'Update Day' : 'Finish Day'}
-        fullWidth
-      />
+        {groupByCircuit(currentSession.exercises).map((group, gi) => (
+          <View key={gi} style={group.circuit_rounds ? styles.circuit : null}>
+            {group.circuit_rounds && (
+              <View style={styles.circuitBadge}>
+                <AppText bold>× {group.circuit_rounds} rounds</AppText>
+              </View>
+            )}
+            {group.exercises.map(ex => (
+              <Exercise
+                key={ex.id}
+                exercise={ex}
+                history={history.get(ex.exercise_id)}
+                onFinishedChange={isDone =>
+                  setFinishedDelta(d => d + (isDone ? 1 : -1))
+                }
+              />
+            ))}
+          </View>
+        ))}
+
+        <TacticalButton
+          variant={currentSession.finished ? 'green' : 'primary'}
+          icon={currentSession.finished ? 'check-circle' : 'flag'}
+          onPress={handleFinish}
+          title={currentSession.finished ? 'Update Day' : 'Finish Day'}
+          fullWidth
+        />
+      </ScrollView>
+
+      {isModal && (
+        <Pressable
+          onPress={onClose}
+          style={styles.modalCloseBtn}
+          accessibilityLabel="Close session">
+          <AppText bold style={styles.modalCloseText}>
+            CLOSE
+          </AppText>
+        </Pressable>
+      )}
 
       {updating && <LoadingModal loading={updating} />}
       {!!finishError && (
@@ -236,11 +297,38 @@ const SessionScreen: React.FC<BaseProps> = ({navigation, route}) => {
           onClose={() => setSuccess(false)}
         />
       )}
-    </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  modalRoot: {flex: 1, backgroundColor: colors.cream},
+  modalTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.ink,
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#2A2A2A',
+  },
+  modalTopBtn: {width: 40, alignItems: 'center'},
+  modalTitle: {
+    flex: 1,
+    textAlign: 'center',
+    color: '#FFFFFF',
+    fontSize: 13,
+    letterSpacing: 1.4,
+  },
+  modalCloseBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCloseText: {color: '#FFFFFF', fontSize: 13, letterSpacing: 2},
+
   root: {flex: 1, backgroundColor: colors.cream, padding: 16},
   circuit: {
     borderLeftWidth: 3,
