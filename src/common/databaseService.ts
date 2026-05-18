@@ -227,6 +227,11 @@ export async function importDatabase(importPath: string): Promise<void> {
     const db = await getDBConnection();
     await db.close();
     await RNFS.copyFile(importPath, DB_PATH_ANDROID);
+    // Re-run initDB on the imported file: ensures the v2 schema is present
+    // (in case the imported DB is older), seeds plans that are missing
+    // (Surf/Strength), and sets active_plan_id if the imported DB didn't
+    // ship one — without this, the Home screen errors with "No active plan".
+    await initDB();
     Alert.alert('Success', 'Database imported successfully');
   } catch (error) {
     Alert.alert('Import failed', (error as Error)?.message);

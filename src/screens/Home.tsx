@@ -10,7 +10,6 @@ import {
 } from '@react-native-documents/picker';
 
 import AppText from '../components/AppText';
-import ErrorComp from '../components/Error';
 import Loading from '../components/Loading';
 import NextSessionCard from '../components/NextSessionCard';
 import PlanCard from '../components/PlanCard';
@@ -27,6 +26,7 @@ import {
   fetchPlans,
   getDBConnection,
   importDatabase,
+  initDB,
   setActivePlanId,
 } from '../common/databaseService';
 import type {BaseProps, Plan, Session, Week} from '../common/types';
@@ -45,7 +45,14 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
 
   const refresh = React.useCallback(async () => {
     const db = await getDBConnection();
-    const [s, p] = await Promise.all([fetchHomeSummary(db), fetchPlans(db)]);
+    let [s, p] = await Promise.all([fetchHomeSummary(db), fetchPlans(db)]);
+    // Self-heal: an imported DB may be missing the active_plan_id setting
+    // and/or the Surf/Strength seed plans. Re-run initDB once to repair.
+    if (s == null) {
+      await initDB();
+      const db2 = await getDBConnection();
+      [s, p] = await Promise.all([fetchHomeSummary(db2), fetchPlans(db2)]);
+    }
     setSummary(s);
     setPlans(p);
   }, []);
@@ -115,29 +122,46 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
   }
 
   if (loading) return <Loading text="Loading" />;
-  if (error) return <ErrorComp error={error} />;
-  if (!summary) return <ErrorComp error={new Error('No active plan')} />;
+
+  const errorMessage = error
+    ? `Couldn't load Home: ${error.message}`
+    : !summary
+    ? "No active plan found. The database might be missing its 'active_plan_id' setting — try re-importing your data below, or close and re-open the app to re-seed."
+    : null;
 
   return (
     <View style={styles.root}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        <PlanCard
-          plan={summary.activePlan}
-          onPress={() => setModalVisible(true)}
-        />
+        {errorMessage && (
+          <View style={styles.errorBanner}>
+            <AppText bold style={styles.errorBannerTitle}>
+              Something went wrong
+            </AppText>
+            <AppText style={styles.errorBannerBody}>{errorMessage}</AppText>
+          </View>
+        )}
 
-        <NextSessionCard
-          currentWeek={summary.currentWeek}
-          nextSession={summary.nextSession}
-          onStartSession={handleStartSession}
-          onCreateNextWeek={handleCreateNextWeek}
-        />
+        {summary && (
+          <>
+            <PlanCard
+              plan={summary.activePlan}
+              onPress={() => setModalVisible(true)}
+            />
 
-        {summary.currentWeek && (
-          <ProgressCard
-            week={summary.currentWeek}
-            onPress={() => navigation.navigate('Weeks')}
-          />
+            <NextSessionCard
+              currentWeek={summary.currentWeek}
+              nextSession={summary.nextSession}
+              onStartSession={handleStartSession}
+              onCreateNextWeek={handleCreateNextWeek}
+            />
+
+            {summary.currentWeek && (
+              <ProgressCard
+                week={summary.currentWeek}
+                onPress={() => navigation.navigate('Weeks')}
+              />
+            )}
+          </>
         )}
 
         <VibeCard puppy={puppy} />
@@ -186,7 +210,7 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
       <PlanSwitcherModal
         visible={modalVisible}
         plans={plans}
-        activePlanId={summary.activePlan.id}
+        activePlanId={summary?.activePlan.id ?? -1}
         onSelect={handleSelectPlan}
         onClose={() => setModalVisible(false)}
       />
@@ -202,10 +226,21 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
   );
 };
 
+
+
 const styles = StyleSheet.create({
   root: {flex: 1, backgroundColor: '#f5f5f7'},
   scroll: {flex: 1},
   content: {padding: 16, gap: 12, paddingBottom: 16},
+  errorBanner: {
+    backgroundColor: '#fff3e0',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f57c00',
+  },
+  errorBannerTitle: {fontSize: 15, color: '#bf360c', marginBottom: 4},
+  errorBannerBody: {fontSize: 13, color: '#5d4037', lineHeight: 18},
   dataSection: {
     paddingHorizontal: 16,
     paddingTop: 12,
