@@ -1,69 +1,82 @@
 import React from 'react';
 import {Alert, Pressable, StyleSheet, View} from 'react-native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import MaterialIcons from '@react-native-vector-icons/material-icons';
 
 import Accordion from './Accordion';
 import AppText from './AppText';
 
-import {displayDate} from '../common/functions';
-import {deleteWorkoutProgram} from '../common/databaseService';
+import {displayDate, formatTime} from '../common/functions';
+import {deleteWeek, getDBConnection} from '../common/databaseService';
 import {boxShadow, row} from '../common/styles';
-import {colors} from '../common/variables';
+import {colors} from '../common/theme';
+import type {Week} from '../common/types';
 
-interface Props extends Week {
-  setWeeks: (state: Week[]) => Week[];
-  setError: (error: Error) => void;
-  setUpdating: (status: boolean) => void;
+interface Props {
+  week: Week;
+  setWeeks: React.Dispatch<React.SetStateAction<Week[]>>;
+  setUpdating: React.Dispatch<React.SetStateAction<boolean>>;
+  setError: (e: Error | null) => void;
 }
 
-const WeekAccordion: React.FC<Props> = props => {
-  async function deleteWeek(id: number) {
+const WeekAccordion: React.FC<Props> = ({week, setWeeks, setUpdating, setError}) => {
+  const {id, created_at, sessions, finished} = week;
+
+  // Derive a date range from the trained_at timestamps on the sessions. If
+  // none were trained yet, fall back to created_at as the start so the header
+  // still shows when the week was created.
+  const trainedAts = sessions
+    .map(s => s.trained_at)
+    .filter((d): d is string => !!d);
+  const hasTrained = trainedAts.length > 0;
+  const sorted = [...trainedAts].sort();
+  const firstTrained = sorted[0];
+  const lastTrained = sorted[sorted.length - 1];
+
+  const dateLabel = hasTrained
+    ? displayDate(firstTrained, lastTrained)
+    : `created ${displayDate(created_at, created_at)} – no sessions trained yet`;
+
+  async function handleDelete() {
     try {
-      await props.setUpdating(true);
-      await deleteWorkoutProgram(id);
-      props.setWeeks((state: Week[]) => state.filter(item => item.id != id));
+      setUpdating(true);
+      const db = await getDBConnection();
+      await deleteWeek(db, id);
+      setWeeks(state => state.filter(item => item.id != id));
     } catch (err) {
-      props.setError(err as Error);
+      setError(err as Error);
     } finally {
-      props.setUpdating(false);
+      setUpdating(false);
     }
   }
 
   return (
     <Accordion
-      style={!!props.finished && {backgroundColor: colors.secondary}}
-      title={`Woche ${props.id} ${props.type} ${displayDate(
-        props.start_date,
-        props.end_date,
-      )}`}
-      closed={props.finished ? '1' : '0'}
+      style={!!finished && {backgroundColor: colors.secondary}}
+      title={`Woche ${id} ${dateLabel}`}
+      closed={!!finished}
       controlIcon="expand-more">
       <View
         style={[
           styles.row,
           {marginBottom: 32, marginTop: 16, justifyContent: 'flex-end'},
         ]}>
-        <AppText style={{color: props.finished ? colors.primary : '#ddd'}}>
-          {props.finished ? 'Finished' : 'Open'}
+        <AppText style={{color: finished ? colors.primary : '#ddd'}}>
+          {finished ? 'Finished' : 'Open'}
         </AppText>
 
         <MaterialIcons
           style={styles.icon}
-          name={props.finished ? 'done' : 'timeline'}
-          color={props.finished ? colors.primary : '#ddd'}
+          name={finished ? 'done' : 'timeline'}
+          color={finished ? colors.primary : '#ddd'}
           size={20}
         />
 
         <Pressable
           onPress={() =>
-            Alert.alert(
-              'Delete Week',
-              'Do you really want to delete this week',
-              [
-                {text: 'Cancel'},
-                {text: 'Confirm', onPress: () => deleteWeek(props.id)},
-              ],
-            )
+            Alert.alert('Delete Week', 'Do you really want to delete this week', [
+              {text: 'Cancel'},
+              {text: 'Confirm', onPress: handleDelete},
+            ])
           }>
           <MaterialIcons
             style={styles.icon}
@@ -73,7 +86,8 @@ const WeekAccordion: React.FC<Props> = props => {
           />
         </Pressable>
       </View>
-      {props.sessions.map(session => (
+
+      {sessions.map(session => (
         <View key={session.id} style={[styles.day]}>
           <View
             style={[
@@ -82,7 +96,7 @@ const WeekAccordion: React.FC<Props> = props => {
               !!session.finished && {backgroundColor: colors.secondary},
             ]}>
             <AppText style={{color: '#fff'}} bold>
-              {session.day}
+              {session.session_name}
             </AppText>
 
             <MaterialIcons
@@ -108,20 +122,20 @@ const WeekAccordion: React.FC<Props> = props => {
                     },
                   ]}>
                   <AppText italic key={exercise.id}>
-                    {exercise.name}:
+                    {exercise.exercise_name}:
                   </AppText>
-                  {exercise.sled ? (
-                    <AppText>
-                      {`${Math.floor(exercise.time! / 60)}:${Math.floor(
-                        exercise.time! % 60,
-                      )} min`}
-                    </AppText>
-                  ) : (
+                  {exercise.prescribed_seconds != null ? (
+                    <AppText>{formatTime(exercise.prescribed_seconds)} min</AppText>
+                  ) : exercise.sets[0]?.reps != null ? (
                     <AppText>{exercise.sets[0].reps} Reps</AppText>
+                  ) : exercise.prescribed_reps != null ? (
+                    <AppText>{exercise.prescribed_reps} Reps</AppText>
+                  ) : null}
+                  {exercise.sets.map(set =>
+                    set.weight != null ? (
+                      <AppText key={set.id}>{set.weight} kg</AppText>
+                    ) : null,
                   )}
-                  {exercise.sets.map(set => (
-                    <AppText key={set.id}>{set.weight} kg</AppText>
-                  ))}
                 </View>
 
                 <View style={{flexGrow: 1, marginBottom: 12}}>

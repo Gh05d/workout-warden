@@ -1,122 +1,119 @@
+// src/components/Exercise.tsx
 import React from 'react';
 import {Button, Modal, Pressable, StyleSheet, View} from 'react-native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import MaterialIcons from '@react-native-vector-icons/material-icons';
 
 import Accordion from './Accordion';
-import {colors} from '../common/variables';
 import AppInput from './AppInput';
 import AppCheckBox from './AppCheckBox';
 import AppText from './AppText';
 import CountdownTimer from './CountdownTimer';
-import {row} from '../common/styles';
-import {formatTime} from '../common/functions';
 import Youtube from './Youtube';
-import {getDBConnection} from '../common/databaseService';
 import Toast from './Toast';
 
-const Exercise: React.FC<Exercise> = exercise => {
+import {colors} from '../common/theme';
+import {row} from '../common/styles';
+import {formatTime} from '../common/functions';
+import {
+  getDBConnection,
+  setSessionExerciseFinished,
+  updateSet,
+} from '../common/databaseService';
+import type {ExerciseInstance, SetLog} from '../common/types';
+
+interface Props {
+  exercise: ExerciseInstance;
+}
+
+function formatPrescription(ex: ExerciseInstance): string {
+  if (ex.prescribed_seconds != null) {
+    const base = formatTime(ex.prescribed_seconds);
+    const side = ex.per_side ? ' Per Side' : '';
+    return ex.prescribed_seconds >= 60 ? `${base}${side}` : `${ex.prescribed_seconds} Secs${side}`;
+  }
+  if (ex.prescribed_reps != null) {
+    const prefix = ex.as_maximum ? 'up to ' : '';
+    const side = ex.per_side ? ' Per Side' : '';
+    return `${prefix}${ex.prescribed_reps} Reps${side}`;
+  }
+  return '';
+}
+
+const Exercise: React.FC<Props> = ({exercise}) => {
   const [finished, setFinished] = React.useState(!!exercise.finished);
-  const [show, toggle] = React.useState(false);
-  const [youtube, setYoutube] = React.useState(false);
-  const [sets, setSets] = React.useState(exercise.sled ? [] : exercise.sets);
-  const [error, setError] = React.useState<null | Error>(null);
+  const [showModal, setShowModal] = React.useState(false);
+  const [showYoutube, setShowYoutube] = React.useState(false);
+  const [sets, setSets] = React.useState<SetLog[]>(exercise.sets);
+  const [error, setError] = React.useState<Error | null>(null);
 
   function close() {
-    toggle(false);
-    setYoutube(false);
+    setShowModal(false);
+    setShowYoutube(false);
   }
 
-  function setValue(value: string, type: string, id: number) {
-    setSets(state => {
-      const copy = [...state];
-      const index = copy.findIndex(item => item.id == id);
-      copy[index][type] = +value;
-
-      update({...exercise, sets: copy});
-
-      return copy;
-    });
-  }
-
-  async function update(data: Exercise) {
+  async function handleSetChange(setId: number, field: 'weight' | 'reps', value: string) {
+    const num = value === '' ? null : Number(value);
+    setSets(prev => prev.map(s => (s.id === setId ? {...s, [field]: num} : s)));
     try {
       const db = await getDBConnection();
-
-      for (const set of data.sets) {
-        const query = `
-          UPDATE sets SET weight = ?, reps = ?
-          WHERE id = ? AND training_day_exercise_id = ?;
-        `;
-        await db.executeSql(query, [
-          set.weight,
-          set.reps,
-          set.id,
-          set.training_day_exercise_id,
-        ]);
-      }
+      await updateSet(db, setId, {[field]: num});
     } catch (err) {
       setError(err as Error);
     }
   }
 
   async function handleCheckBox(value: boolean) {
+    setFinished(value);
     try {
-      setFinished(state => !state);
       const db = await getDBConnection();
-
-      const query = `
-        UPDATE training_day_exercises SET finished = ?
-        WHERE id = ?;
-      `;
-      await db.executeSql(query, [
-        value ? 1 : 0,
-        exercise.training_day_exercise_id,
-      ]);
+      await setSessionExerciseFinished(db, exercise.id, value);
     } catch (err) {
       setError(err as Error);
     }
   }
 
+  const isTimed = exercise.prescribed_seconds != null;
+  const prescription = formatPrescription(exercise);
+
   return (
     <Accordion
       style={finished && {backgroundColor: colors.secondary}}
-      title={exercise.name}
+      title={exercise.exercise_name}
+      subtitle={prescription}
       closed={finished}
       controlIcon="expand-more">
       <Pressable
         onPress={() => {
-          setYoutube(true);
-          toggle(true);
+          setShowYoutube(true);
+          setShowModal(true);
         }}
         style={[row, {justifyContent: 'flex-start', marginBottom: 16}]}>
         <MaterialIcons name="subscriptions" size={30} color={colors.primary} />
         <AppText bold>Exercise Explanation</AppText>
       </Pressable>
 
+      {!!exercise.hint && <AppText italic>{exercise.hint}</AppText>}
+
       <View style={styles.trainingWrapper}>
         <View>
-          {exercise.sled ? (
+          {isTimed ? (
             <View style={{...row}}>
-              <AppText>{formatTime(exercise.time!)} Minutes</AppText>
-              <Button
-                color={colors.primary}
-                title="Show Timer"
-                onPress={() => toggle(true)}
-              />
+              <AppText>{prescription}</AppText>
+              <Button color={colors.primary} title="Show Timer" onPress={() => setShowModal(true)} />
             </View>
           ) : (
-            sets?.map(set => (
+            sets.map(set => (
               <View key={set.id} style={styles.data}>
                 <AppInput
                   keyboardType="numeric"
-                  setValue={value => setValue(value, 'reps', set.id)}
-                  value={set.reps?.toString()}
+                  setValue={v => handleSetChange(set.id, 'reps', v)}
+                  value={set.reps?.toString() ?? ''}
                   label="Reps"
                 />
                 <AppInput
                   keyboardType="numeric"
-                  setValue={value => setValue(value, 'weight', set.id)}
-                  value={set.weight?.toString()}
+                  setValue={v => handleSetChange(set.id, 'weight', v)}
+                  value={set.weight?.toString() ?? ''}
                   label="Weight"
                 />
               </View>
@@ -124,38 +121,24 @@ const Exercise: React.FC<Exercise> = exercise => {
           )}
         </View>
 
-        <AppCheckBox
-          value={finished}
-          onValueChange={value => handleCheckBox(value)}
-          color={colors.primary}
-        />
+        <AppCheckBox value={finished} onValueChange={handleCheckBox} color={colors.primary} />
       </View>
 
-      <Modal visible={show} onRequestClose={close} animationType="slide">
-        {youtube ? (
-          <Youtube close={close} video={exercise.video} />
+      <Modal visible={showModal} onRequestClose={close} animationType="slide">
+        {showYoutube ? (
+          <Youtube close={close} video={exercise.video ?? ''} />
         ) : (
-          <CountdownTimer close={close} duration={exercise.time!} />
+          <CountdownTimer close={close} duration={exercise.prescribed_seconds ?? 0} />
         )}
       </Modal>
 
-      {error && (
-        <Toast
-          message={error.message}
-          type="error"
-          onClose={() => setError(null)}
-        />
-      )}
+      {error && <Toast message={error.message} type="error" onClose={() => setError(null)} />}
     </Accordion>
   );
 };
 
 const styles = StyleSheet.create({
-  trainingWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  trainingWrapper: {flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'},
   data: {...row, justifyContent: 'center'},
 });
 

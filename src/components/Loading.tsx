@@ -8,7 +8,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import AppText from './AppText';
-import {colors} from '../common/variables';
+import {colors} from '../common/theme';
 
 interface Props {
   /** The text to be displayed. Defaults to Loading */
@@ -29,7 +29,7 @@ interface Props {
  * @component
  */
 const Loading: React.FC<Props> = ({
-  text = 'Lade Seite',
+  text = 'Loading',
   inline,
   style,
   textStyle,

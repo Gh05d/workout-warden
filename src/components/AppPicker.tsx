@@ -10,10 +10,10 @@ import {
   KeyboardAvoidingView,
   Button,
 } from 'react-native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import MaterialIcons from '@react-native-vector-icons/material-icons';
 
 import AppText from './AppText';
-import {colors} from '../common/variables';
+import {colors} from '../common/theme';
 
 interface Props {
   startItem?: string;
@@ -75,8 +75,8 @@ const AppPicker: React.FC<Props> = props => {
           </ScrollView>
 
           <Button
-            accessibilityLabel="Abbrechen"
-            title="Abbrechen"
+            accessibilityLabel="Cancel"
+            title="Cancel"
             onPress={close}
           />
         </KeyboardAvoidingView>

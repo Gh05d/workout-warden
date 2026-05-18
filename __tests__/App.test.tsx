@@ -1,17 +1,23 @@
-/**
- * @format
- */
+import {displayDate, formatTime} from '../src/common/functions';
 
-import 'react-native';
-import React from 'react';
-import App from '../src/App';
+describe('formatTime', () => {
+  it('zero-pads seconds below ten', () => {
+    expect(formatTime(65)).toBe('1:05');
+  });
 
-// Note: import explicitly to use the types shipped with jest.
-import {it} from '@jest/globals';
+  it('handles zero', () => {
+    expect(formatTime(0)).toBe('0:00');
+  });
 
-// Note: test renderer must be required after react-native.
-import renderer from 'react-test-renderer';
+  it('handles multi-minute durations', () => {
+    expect(formatTime(305)).toBe('5:05');
+  });
+});
 
-it('renders correctly', () => {
-  renderer.create(<App />);
+describe('displayDate', () => {
+  it('renders a start–end range with the trailing year', () => {
+    expect(displayDate('2026-01-05 00:00', '2026-01-12 00:00')).toBe(
+      '05.01 - 12.01.2026',
+    );
+  });
 });

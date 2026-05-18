@@ -8,13 +8,14 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import MaterialIcons from '@react-native-vector-icons/material-icons';
 
-import {colors} from '../common/variables';
+import {colors} from '../common/theme';
 import AppText from './AppText';
 
 interface Props {
   title?: string;
+  subtitle?: string;
   iconSize?: number;
   iconColor?: string;
   closed?: boolean;
@@ -34,6 +35,7 @@ const screenPadding = 16;
 const Accordion: React.FC<Props> = props => {
   const {
     title,
+    subtitle,
     iconSize = 30,
     controlIcon = `caret-${props.closed ? 'down' : 'up'}`,
     style,
@@ -95,6 +97,11 @@ const Accordion: React.FC<Props> = props => {
             <AppText bold style={styles.headingText}>
               {title}
             </AppText>
+            {subtitle ? (
+              <AppText italic style={styles.subtitleText}>
+                {subtitle}
+              </AppText>
+            ) : null}
           </View>
         )}
 
@@ -131,6 +138,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#eee',
   },
   headingText: {marginLeft: 8, color: '#fff'},
+  subtitleText: {marginLeft: 8, color: '#fff', opacity: 0.7, fontSize: 12},
   empty: {margin: 8},
   textContainer: {marginTop: 8, paddingBottom: 12},
 });

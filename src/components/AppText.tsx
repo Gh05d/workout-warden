@@ -26,10 +26,10 @@ const AppText: React.FC<Props> = ({
   const fontSize = (Platform as any).isPad
     ? 20
     : style && typeof style === 'object' && 'fontSize' in style
-    ? style.fontSize
-    : Platform.OS == 'ios'
-    ? 16
-    : 14;
+      ? style.fontSize
+      : Platform.OS == 'ios'
+        ? 16
+        : 14;
 
   const lineHeight = fontSize * 1.25;
 

@@ -1,75 +1,64 @@
+// src/screens/Weeks.tsx
 import React from 'react';
-import {StyleSheet, View, FlatList, Button, RefreshControl} from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
+import {Button, FlatList, RefreshControl, StyleSheet, View} from 'react-native';
 
 import AppText from '../components/AppText';
 import Toast from '../components/Toast';
 import LoadingModal from '../components/LoadingModal';
-import Error from '../components/Error';
+import ErrorComp from '../components/Error';
 import Loading from '../components/Loading';
 import WeekAccordion from '../components/WeekAccordion';
 
-import {colors} from '../common/variables';
+import {colors} from '../common/theme';
 import {
-  fetchWeeks,
+  createWeek,
+  fetchActivePlanId,
+  fetchWeeksByPlan,
   getDBConnection,
-  getNewWorkoutProgramType,
-  insertWorkoutProgram,
 } from '../common/databaseService';
+import type {BaseProps, Week} from '../common/types';
 
-const Weeks: React.FC<BaseProps> = ({}) => {
+const Weeks: React.FC<BaseProps> = () => {
+  const [activePlanId, setActivePlanIdState] = React.useState<number | null>(null);
   const [weeks, setWeeks] = React.useState<Week[]>([]);
-  const [error, setError] = React.useState<null | Error>(null);
-  const [initError, setInitError] = React.useState<null | Error>(null);
   const [loading, setLoading] = React.useState(true);
-  const [success, setSuccess] = React.useState('');
+  const [initError, setInitError] = React.useState<null | Error>(null);
+  const [error, setError] = React.useState<null | Error>(null);
   const [updating, setUpdating] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [success, setSuccess] = React.useState('');
 
-  React.useEffect(() => {
-    init();
+  const refresh = React.useCallback(async (planId: number) => {
+    const db = await getDBConnection();
+    setWeeks(await fetchWeeksByPlan(db, planId));
   }, []);
 
-  async function init() {
-    try {
-      const db = await getDBConnection();
-      const res = await fetchWeeks(db);
-
-      if (res?.length) setWeeks(res);
-    } catch (err) {
-      setInitError(err as Error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleRefresh() {
-    await setRefreshing(true);
-    await init();
-    await setRefreshing(false);
-  }
-
-  const renderItem = React.useCallback(
-    ({item}: {item: Week}) => (
-      <WeekAccordion
-        {...item}
-        setWeeks={setWeeks}
-        setUpdating={setUpdating}
-        setError={setError}
-      />
-    ),
-    [],
+  useFocusEffect(
+    React.useCallback(() => {
+      (async function init() {
+        setLoading(true);
+        try {
+          const db = await getDBConnection();
+          const active = await fetchActivePlanId(db);
+          setActivePlanIdState(active);
+          if (active != null) await refresh(active);
+        } catch (err) {
+          setInitError(err as Error);
+        } finally {
+          setLoading(false);
+        }
+      })();
+    }, [refresh]),
   );
 
-  async function createWeek() {
+  async function handleAddWeek() {
+    if (activePlanId == null) return;
+    setUpdating(true);
     try {
-      await setUpdating(true);
-
       const db = await getDBConnection();
-      const type = await getNewWorkoutProgramType(db);
-      await insertWorkoutProgram(db, type);
-
-      const res = await fetchWeeks(db);
-      setWeeks(res);
+      await createWeek(db, activePlanId);
+      await refresh(activePlanId);
       setSuccess('Added new Week');
     } catch (err) {
       setError(err as Error);
@@ -78,55 +67,61 @@ const Weeks: React.FC<BaseProps> = ({}) => {
     }
   }
 
-  if (loading) return <Loading text="Lade Wochen" />;
-  if (initError) return <Error error={initError} />;
+  async function handleRefresh() {
+    if (activePlanId == null) return;
+    setRefreshing(true);
+    await refresh(activePlanId);
+    setRefreshing(false);
+  }
+
+  if (loading) return <Loading text="Loading weeks" />;
+  if (initError) return <ErrorComp error={initError} />;
 
   return (
     <View style={styles.container}>
-      {weeks.length ? (
+      {weeks.length === 0 ? (
+        <View style={styles.empty}>
+          <AppText>No weeks yet</AppText>
+        </View>
+      ) : (
         <FlatList
           data={weeks}
-          renderItem={renderItem}
-          keyExtractor={(item, index) => `${item.start_date}-${index}`}
-          style={styles.root}
+          keyExtractor={w => String(w.id)}
+          renderItem={({item}) => (
+            <WeekAccordion
+              week={item}
+              setWeeks={setWeeks}
+              setUpdating={setUpdating}
+              setError={setError}
+            />
+          )}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
+          style={styles.list}
         />
-      ) : (
-        <View style={styles.root}>
-          <AppText>Noch keine Daten</AppText>
-        </View>
       )}
 
       <Button
         color={colors.primary}
         title="Add new Week"
-        onPress={createWeek}
-        disabled={updating}
+        onPress={handleAddWeek}
+        disabled={updating || activePlanId == null}
       />
 
       <LoadingModal loading={updating} />
       {!!success && <Toast message={success} onClose={() => setSuccess('')} />}
       {error && (
-        <Toast
-          type="error"
-          message={error.message}
-          onClose={() => setError(null)}
-        />
+        <Toast type="error" message={error.message} onClose={() => setError(null)} />
       )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    paddingBottom: 16,
-    backgroundColor: '#fff',
-  },
-  root: {flex: 1},
+  container: {flex: 1, padding: 16, backgroundColor: '#fff'},
+  empty: {flex: 1, justifyContent: 'center', alignItems: 'center'},
+  list: {flex: 1},
 });
 
 export default Weeks;

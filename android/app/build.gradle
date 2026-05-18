@@ -81,8 +81,8 @@ android {
         applicationId "com.workoutwarden"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 10
-        versionName "1.3.0"
+        versionCode 12
+        versionName "2.1.0"
     }
     signingConfigs {
         debug {
@@ -116,9 +116,6 @@ dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 
-
-    implementation project(':react-native-fs')
-
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {
@@ -126,8 +123,3 @@ dependencies {
     }
 }
 
-project.ext.vectoricons = [
-    iconFontNames: [ 'MaterialIcons.ttf' ] // Specify font files
-]
-
-apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")

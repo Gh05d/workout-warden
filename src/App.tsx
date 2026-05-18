@@ -1,17 +1,17 @@
-import {GestureHandlerRootView} from 'react-native-gesture-handler';
-
+// src/App.tsx
 import React from 'react';
+import {GestureHandlerRootView} from 'react-native-gesture-handler';
 import {SafeAreaProvider} from 'react-native-safe-area-context';
 import SQLite from 'react-native-sqlite-storage';
 
 import Routes from './Routes';
 import SplashScreen from './components/Splash';
-import {initDB} from './common/databaseService';
 import Toast from './components/Toast';
+import {initDB} from './common/databaseService';
 
 SQLite.enablePromise(true);
 
-const App: React.FC<{}> = () => {
+const App: React.FC = () => {
   const [initiated, setInitiated] = React.useState(false);
   const [showSplash, setShowSplash] = React.useState(true);
   const [puppy, setPuppy] = React.useState('');
@@ -20,14 +20,12 @@ const App: React.FC<{}> = () => {
   React.useEffect(() => {
     (async function init() {
       try {
-        const [response] = await Promise.all([
+        const [response, _] = await Promise.all([
           fetch('https://dog.ceo/api/breeds/image/random'),
           initDB(),
         ]);
-
         const data = await response.json();
-
-        if (data?.status == 'success') setPuppy(data.message);
+        if (data?.status === 'success') setPuppy(data.message);
       } catch (err) {
         console.log(err);
         setError(err as Error);
