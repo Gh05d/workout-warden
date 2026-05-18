@@ -4,11 +4,15 @@ import {
   Pressable,
   View,
   Animated,
-  LayoutAnimation,
   StyleProp,
   ViewStyle,
 } from 'react-native';
 import MaterialIcons from '@react-native-vector-icons/material-icons';
+import Reanimated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+} from 'react-native-reanimated';
 
 import {colors} from '../common/theme';
 import AppText from './AppText';
@@ -52,28 +56,12 @@ const Accordion: React.FC<Props> = props => {
     outputRange: ['0deg', '180deg'],
   });
 
-  const toggleAnimation = {
-    duration: 300,
-    update: {
-      duration: 300,
-      property: LayoutAnimation.Properties.opacity,
-      type: LayoutAnimation.Types.easeInEaseOut,
-    },
-    delete: {
-      duration: 200,
-      property: LayoutAnimation.Properties.opacity,
-      type: LayoutAnimation.Types.easeInEaseOut,
-    },
-  };
-
   const toggleAccordion = (value?: boolean) => {
     Animated.timing(animatedController, {
       useNativeDriver: true,
       duration: 300,
       toValue: open ? 0 : 1,
     }).start();
-
-    LayoutAnimation.configureNext(toggleAnimation);
 
     if (value) toggle(value);
     else toggle(state => !state);
@@ -114,12 +102,18 @@ const Accordion: React.FC<Props> = props => {
         </Animated.View>
       </Pressable>
 
-      <View style={styles.bodyContainer}>
-        {open &&
-          (<View style={styles.textContainer}>{props.children}</View> || (
-            <AppText style={styles.empty}>Noch keine Einträge</AppText>
-          ))}
-      </View>
+      <Reanimated.View
+        layout={LinearTransition.duration(280)}
+        style={styles.bodyContainer}>
+        {open && (
+          <Reanimated.View
+            entering={FadeIn.duration(220)}
+            exiting={FadeOut.duration(140)}
+            style={styles.textContainer}>
+            {props.children}
+          </Reanimated.View>
+        )}
+      </Reanimated.View>
     </View>
   );
 };

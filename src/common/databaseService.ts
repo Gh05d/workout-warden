@@ -3,7 +3,7 @@ import * as RNFS from '@dr.pogodin/react-native-fs';
 import {Alert} from 'react-native';
 import {EXERCISES, PLANS} from '../seeds';
 import {validateSeed} from './seedValidator';
-import type {Plan, PlanDay, Session, ExerciseInstance, SetLog, Week} from './types';
+import type {Plan, PlanDay, Session, ExerciseInstance, Week} from './types';
 
 const DB_NAME = 'warden.db';
 const DB_PATH_ANDROID = '/data/data/com.workoutwarden/databases/warden.db';
@@ -36,10 +36,11 @@ const SCHEMA: string[] = [
      UNIQUE(plan_id, day_index)
    )`,
   `CREATE TABLE IF NOT EXISTS exercises (
-     id    INTEGER PRIMARY KEY AUTOINCREMENT,
-     slug  TEXT NOT NULL UNIQUE,
-     name  TEXT NOT NULL,
-     video TEXT
+     id          INTEGER PRIMARY KEY AUTOINCREMENT,
+     slug        TEXT NOT NULL UNIQUE,
+     name        TEXT NOT NULL,
+     video       TEXT,
+     description TEXT
    )`,
   `CREATE TABLE IF NOT EXISTS session_template_exercises (
      id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -112,18 +113,33 @@ const SCHEMA: string[] = [
 export async function seedDB(db: SQLiteDatabase): Promise<void> {
   validateSeed({exercises: [...EXERCISES], plans: [...PLANS]});
 
+  // 0. Lightweight in-place migration: add the description column for installs
+  // that pre-date its introduction. SQLite throws "duplicate column" if it
+  // already exists — that's the success path on fresh installs, so swallow it.
+  try {
+    await db.executeSql(`ALTER TABLE exercises ADD COLUMN description TEXT`);
+  } catch {
+    /* column already exists */
+  }
+
   // 1. Upsert exercises (catalogue grows, never shrinks)
   for (const ex of EXERCISES) {
     await db.executeSql(
-      `INSERT INTO exercises (slug, name, video) VALUES (?, ?, ?)
-       ON CONFLICT(slug) DO UPDATE SET name = excluded.name, video = excluded.video`,
-      [ex.slug, ex.name, ex.video ?? null],
+      `INSERT INTO exercises (slug, name, video, description) VALUES (?, ?, ?, ?)
+       ON CONFLICT(slug) DO UPDATE SET
+         name = excluded.name,
+         video = excluded.video,
+         description = excluded.description`,
+      [ex.slug, ex.name, ex.video ?? null, ex.description ?? null],
     );
   }
 
   // 2. Per plan: insert if missing, leave existing plan content alone
   for (const plan of PLANS) {
-    const [planRes] = await db.executeSql(`SELECT id FROM plans WHERE slug = ?`, [plan.slug]);
+    const [planRes] = await db.executeSql(
+      `SELECT id FROM plans WHERE slug = ?`,
+      [plan.slug],
+    );
     let planId: number;
     if (planRes.rows.length === 0) {
       const [ins] = await db.executeSql(
@@ -138,7 +154,10 @@ export async function seedDB(db: SQLiteDatabase): Promise<void> {
     // 3. session_templates: insert only missing slugs (template content is immutable post-insert)
     const templateIdBySlug = new Map<string, number>();
     for (const tpl of plan.session_templates) {
-      const [tplRes] = await db.executeSql(`SELECT id FROM session_templates WHERE slug = ?`, [tpl.slug]);
+      const [tplRes] = await db.executeSql(
+        `SELECT id FROM session_templates WHERE slug = ?`,
+        [tpl.slug],
+      );
       let tplId: number;
       if (tplRes.rows.length === 0) {
         const [ins] = await db.executeSql(
@@ -148,7 +167,10 @@ export async function seedDB(db: SQLiteDatabase): Promise<void> {
         tplId = ins.insertId;
         // insert all exercises for this template
         for (const ex of tpl.exercises) {
-          const [exRow] = await db.executeSql(`SELECT id FROM exercises WHERE slug = ?`, [ex.exercise_slug]);
+          const [exRow] = await db.executeSql(
+            `SELECT id FROM exercises WHERE slug = ?`,
+            [ex.exercise_slug],
+          );
           const exId = exRow.rows.item(0).id as number;
           await db.executeSql(
             `INSERT INTO session_template_exercises
@@ -156,7 +178,9 @@ export async function seedDB(db: SQLiteDatabase): Promise<void> {
                 prescribed_reps, prescribed_seconds, prescribed_sets, per_side, as_maximum, hint)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-              tplId, exId, ex.order_index,
+              tplId,
+              exId,
+              ex.order_index,
               ex.circuit_index ?? null,
               ex.circuit_rounds ?? null,
               ex.prescribed_reps ?? null,
@@ -191,13 +215,19 @@ export async function seedDB(db: SQLiteDatabase): Promise<void> {
   }
 
   // 5. Default active_plan_id to the first seeded plan if not already set
-  const [active] = await db.executeSql(`SELECT value FROM settings WHERE key = 'active_plan_id'`);
+  const [active] = await db.executeSql(
+    `SELECT value FROM settings WHERE key = 'active_plan_id'`,
+  );
   if (active.rows.length === 0 && PLANS.length > 0) {
-    const [first] = await db.executeSql(`SELECT id FROM plans WHERE slug = ? LIMIT 1`, [PLANS[0].slug]);
+    const [first] = await db.executeSql(
+      `SELECT id FROM plans WHERE slug = ? LIMIT 1`,
+      [PLANS[0].slug],
+    );
     if (first.rows.length > 0) {
-      await db.executeSql(`INSERT INTO settings (key, value) VALUES ('active_plan_id', ?)`, [
-        String(first.rows.item(0).id),
-      ]);
+      await db.executeSql(
+        `INSERT INTO settings (key, value) VALUES ('active_plan_id', ?)`,
+        [String(first.rows.item(0).id)],
+      );
     }
   }
 }
@@ -229,7 +259,10 @@ export async function importDatabase(importPath: string): Promise<void> {
     // clobbering the live DB. Prevents v1-format exports from corrupting
     // the app's internal state.
     await RNFS.copyFile(importPath, tempPath);
-    const tmp = await openDatabase({name: 'warden.db.import-tmp', location: 'default'});
+    const tmp = await openDatabase({
+      name: 'warden.db.import-tmp',
+      location: 'default',
+    });
     const [check] = await tmp.executeSql(
       `SELECT name FROM sqlite_master WHERE type='table' AND name IN ('session_exercises','plans','session_templates')`,
     );
@@ -265,17 +298,26 @@ export async function importDatabase(importPath: string): Promise<void> {
 // ---------- Plan reads ----------
 
 export async function fetchPlans(db: SQLiteDatabase): Promise<Plan[]> {
-  const [res] = await db.executeSql(`SELECT id, slug, name, description FROM plans ORDER BY id ASC`);
+  const [res] = await db.executeSql(
+    `SELECT id, slug, name, description FROM plans ORDER BY id ASC`,
+  );
   return res.rows.raw();
 }
 
-export async function fetchActivePlanId(db: SQLiteDatabase): Promise<number | null> {
-  const [res] = await db.executeSql(`SELECT value FROM settings WHERE key = 'active_plan_id'`);
+export async function fetchActivePlanId(
+  db: SQLiteDatabase,
+): Promise<number | null> {
+  const [res] = await db.executeSql(
+    `SELECT value FROM settings WHERE key = 'active_plan_id'`,
+  );
   if (res.rows.length === 0) return null;
   return Number(res.rows.item(0).value);
 }
 
-export async function setActivePlanId(db: SQLiteDatabase, planId: number): Promise<void> {
+export async function setActivePlanId(
+  db: SQLiteDatabase,
+  planId: number,
+): Promise<void> {
   await db.executeSql(
     `INSERT INTO settings (key, value) VALUES ('active_plan_id', ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
@@ -283,7 +325,10 @@ export async function setActivePlanId(db: SQLiteDatabase, planId: number): Promi
   );
 }
 
-export async function fetchPlanDays(db: SQLiteDatabase, planId: number): Promise<PlanDay[]> {
+export async function fetchPlanDays(
+  db: SQLiteDatabase,
+  planId: number,
+): Promise<PlanDay[]> {
   const [res] = await db.executeSql(
     `SELECT pd.id, pd.plan_id, pd.session_template_id, pd.day_index, pd.weekday_label,
             st.name AS session_template_name
@@ -298,8 +343,14 @@ export async function fetchPlanDays(db: SQLiteDatabase, planId: number): Promise
 
 // ---------- Week / Session creation ----------
 
-export async function createWeek(db: SQLiteDatabase, planId: number): Promise<number> {
-  const [weekIns] = await db.executeSql(`INSERT INTO weeks (plan_id) VALUES (?)`, [planId]);
+export async function createWeek(
+  db: SQLiteDatabase,
+  planId: number,
+): Promise<number> {
+  const [weekIns] = await db.executeSql(
+    `INSERT INTO weeks (plan_id) VALUES (?)`,
+    [planId],
+  );
   const weekId = weekIns.insertId;
 
   const planDays = await fetchPlanDays(db, planId);
@@ -330,9 +381,17 @@ export async function createWeek(db: SQLiteDatabase, planId: number): Promise<nu
             prescribed_reps, prescribed_seconds, prescribed_sets, per_side, as_maximum, hint)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          sessionId, tEx.exercise_id, tEx.order_index, tEx.circuit_index, tEx.circuit_rounds,
-          tEx.prescribed_reps, tEx.prescribed_seconds, tEx.prescribed_sets,
-          tEx.per_side, tEx.as_maximum, tEx.hint,
+          sessionId,
+          tEx.exercise_id,
+          tEx.order_index,
+          tEx.circuit_index,
+          tEx.circuit_rounds,
+          tEx.prescribed_reps,
+          tEx.prescribed_seconds,
+          tEx.prescribed_sets,
+          tEx.per_side,
+          tEx.as_maximum,
+          tEx.hint,
         ],
       );
       const seId = seIns.insertId;
@@ -350,33 +409,29 @@ export async function createWeek(db: SQLiteDatabase, planId: number): Promise<nu
   return weekId;
 }
 
-export async function deleteWeek(db: SQLiteDatabase, weekId: number): Promise<void> {
+export async function deleteWeek(
+  db: SQLiteDatabase,
+  weekId: number,
+): Promise<void> {
   await db.executeSql(`DELETE FROM weeks WHERE id = ?`, [weekId]);
   // cascades to sessions → session_exercises → sets
 }
 
 // ---------- Week / Session reads (2 queries, no N+1) ----------
 
-export async function fetchWeeksByPlan(db: SQLiteDatabase, planId: number): Promise<Week[]> {
-  const [weekRes] = await db.executeSql(
-    `SELECT w.id AS week_id, w.plan_id, w.created_at, w.finished AS week_finished,
-            s.id AS session_id, s.day_index, s.weekday_label, s.session_name,
-            s.trained_at, s.finished AS session_finished, s.notes
-     FROM weeks w
-     LEFT JOIN sessions s ON s.week_id = w.id
-     WHERE w.plan_id = ?
-     ORDER BY w.created_at DESC, s.day_index ASC`,
-    [planId],
-  );
-
+async function hydrateWeeks(
+  db: SQLiteDatabase,
+  weekRows: any[],
+): Promise<Week[]> {
   const weekMap = new Map<number, Week>();
   const sessionIds: number[] = [];
-  for (const row of weekRes.rows.raw()) {
+  for (const row of weekRows) {
     let week = weekMap.get(row.week_id);
     if (!week) {
       week = {
         id: row.week_id,
         plan_id: row.plan_id,
+        plan_name: row.plan_name,
         created_at: row.created_at,
         finished: row.week_finished,
         sessions: [],
@@ -393,7 +448,7 @@ export async function fetchWeeksByPlan(db: SQLiteDatabase, planId: number): Prom
         trained_at: row.trained_at,
         finished: row.session_finished,
         notes: row.notes,
-        exercises: [], // filled in next query
+        exercises: [],
       });
       sessionIds.push(row.session_id);
     }
@@ -406,7 +461,7 @@ export async function fetchWeeksByPlan(db: SQLiteDatabase, planId: number): Prom
     `SELECT se.id AS se_id, se.session_id, se.exercise_id, se.order_index,
             se.circuit_index, se.circuit_rounds, se.prescribed_reps, se.prescribed_seconds,
             se.prescribed_sets, se.per_side, se.as_maximum, se.hint, se.finished AS se_finished,
-            e.slug AS exercise_slug, e.name AS exercise_name, e.video,
+            e.slug AS exercise_slug, e.name AS exercise_name, e.video, e.description AS exercise_description,
             st.id AS set_id, st.set_index, st.weight, st.reps, st.seconds
      FROM session_exercises se
      JOIN exercises e ON e.id = se.exercise_id
@@ -416,7 +471,6 @@ export async function fetchWeeksByPlan(db: SQLiteDatabase, planId: number): Prom
     sessionIds,
   );
 
-  // Fold session_exercises + sets back into the session objects
   const seMap = new Map<number, ExerciseInstance>();
   for (const row of seRes.rows.raw()) {
     let se = seMap.get(row.se_id);
@@ -427,6 +481,7 @@ export async function fetchWeeksByPlan(db: SQLiteDatabase, planId: number): Prom
         exercise_id: row.exercise_id,
         exercise_slug: row.exercise_slug,
         exercise_name: row.exercise_name,
+        exercise_description: row.exercise_description,
         video: row.video,
         order_index: row.order_index,
         circuit_index: row.circuit_index,
@@ -441,7 +496,6 @@ export async function fetchWeeksByPlan(db: SQLiteDatabase, planId: number): Prom
         sets: [],
       };
       seMap.set(row.se_id, se);
-      // Attach to the right session
       for (const w of weekMap.values()) {
         const sess = w.sessions.find(x => x.id === row.session_id);
         if (sess) {
@@ -465,8 +519,97 @@ export async function fetchWeeksByPlan(db: SQLiteDatabase, planId: number): Prom
   return Array.from(weekMap.values());
 }
 
-export async function fetchWeekById(db: SQLiteDatabase, weekId: number): Promise<Week | null> {
-  const [w] = await db.executeSql(`SELECT plan_id FROM weeks WHERE id = ?`, [weekId]);
+export async function fetchAllWeeks(db: SQLiteDatabase): Promise<Week[]> {
+  const [weekRes] = await db.executeSql(
+    `SELECT w.id AS week_id, w.plan_id, p.name AS plan_name,
+            w.created_at, w.finished AS week_finished,
+            s.id AS session_id, s.day_index, s.weekday_label, s.session_name,
+            s.trained_at, s.finished AS session_finished, s.notes
+     FROM weeks w
+     JOIN plans p ON p.id = w.plan_id
+     LEFT JOIN sessions s ON s.week_id = w.id
+     ORDER BY w.created_at DESC, w.id DESC, s.day_index ASC`,
+  );
+  return hydrateWeeks(db, weekRes.rows.raw());
+}
+
+export async function fetchWeeksByPlan(
+  db: SQLiteDatabase,
+  planId: number,
+): Promise<Week[]> {
+  const [weekRes] = await db.executeSql(
+    `SELECT w.id AS week_id, w.plan_id, p.name AS plan_name,
+            w.created_at, w.finished AS week_finished,
+            s.id AS session_id, s.day_index, s.weekday_label, s.session_name,
+            s.trained_at, s.finished AS session_finished, s.notes
+     FROM weeks w
+     JOIN plans p ON p.id = w.plan_id
+     LEFT JOIN sessions s ON s.week_id = w.id
+     WHERE w.plan_id = ?
+     ORDER BY w.created_at DESC, s.day_index ASC`,
+    [planId],
+  );
+  return hydrateWeeks(db, weekRes.rows.raw());
+}
+
+/** Per-exercise history used by Session UI for placeholders + PR badge. */
+export interface PrevSetValue {
+  reps: number | null;
+  weight: number | null;
+}
+export interface ExerciseHistory {
+  prevSetsByIndex: Map<number, PrevSetValue>;
+  maxWeight: number | null;
+}
+
+export async function fetchExerciseHistory(
+  db: SQLiteDatabase,
+  exerciseIds: number[],
+  excludeSessionId: number,
+): Promise<Map<number, ExerciseHistory>> {
+  const result = new Map<number, ExerciseHistory>();
+  for (const id of exerciseIds) {
+    result.set(id, {prevSetsByIndex: new Map(), maxWeight: null});
+  }
+  if (exerciseIds.length === 0) return result;
+
+  const placeholders = exerciseIds.map(() => '?').join(',');
+  const [res] = await db.executeSql(
+    `SELECT se.exercise_id, st.set_index, st.reps, st.weight
+     FROM session_exercises se
+     JOIN sets st ON st.session_exercise_id = se.id
+     WHERE se.exercise_id IN (${placeholders})
+       AND se.session_id != ?
+       AND (st.reps IS NOT NULL OR st.weight IS NOT NULL)
+     ORDER BY se.exercise_id, st.set_index, se.session_id DESC`,
+    [...exerciseIds, excludeSessionId],
+  );
+  for (const row of res.rows.raw()) {
+    const entry = result.get(row.exercise_id);
+    if (!entry) continue;
+    if (!entry.prevSetsByIndex.has(row.set_index)) {
+      entry.prevSetsByIndex.set(row.set_index, {
+        reps: row.reps,
+        weight: row.weight,
+      });
+    }
+    if (
+      row.weight != null &&
+      (entry.maxWeight == null || row.weight > entry.maxWeight)
+    ) {
+      entry.maxWeight = row.weight;
+    }
+  }
+  return result;
+}
+
+export async function fetchWeekById(
+  db: SQLiteDatabase,
+  weekId: number,
+): Promise<Week | null> {
+  const [w] = await db.executeSql(`SELECT plan_id FROM weeks WHERE id = ?`, [
+    weekId,
+  ]);
   if (w.rows.length === 0) return null;
   const planId = w.rows.item(0).plan_id;
   const all = await fetchWeeksByPlan(db, planId);
@@ -478,16 +621,32 @@ export async function fetchWeekById(db: SQLiteDatabase, weekId: number): Promise
 export async function updateSet(
   db: SQLiteDatabase,
   setId: number,
-  patch: {weight?: number | null; reps?: number | null; seconds?: number | null},
+  patch: {
+    weight?: number | null;
+    reps?: number | null;
+    seconds?: number | null;
+  },
 ): Promise<void> {
   const fields: string[] = [];
   const params: (number | null)[] = [];
-  if (patch.weight !== undefined)  { fields.push('weight = ?');  params.push(patch.weight); }
-  if (patch.reps !== undefined)    { fields.push('reps = ?');    params.push(patch.reps); }
-  if (patch.seconds !== undefined) { fields.push('seconds = ?'); params.push(patch.seconds); }
+  if (patch.weight !== undefined) {
+    fields.push('weight = ?');
+    params.push(patch.weight);
+  }
+  if (patch.reps !== undefined) {
+    fields.push('reps = ?');
+    params.push(patch.reps);
+  }
+  if (patch.seconds !== undefined) {
+    fields.push('seconds = ?');
+    params.push(patch.seconds);
+  }
   if (fields.length === 0) return;
   params.push(setId);
-  await db.executeSql(`UPDATE sets SET ${fields.join(', ')} WHERE id = ?`, params);
+  await db.executeSql(
+    `UPDATE sets SET ${fields.join(', ')} WHERE id = ?`,
+    params,
+  );
 }
 
 export async function setSessionExerciseFinished(
@@ -501,7 +660,10 @@ export async function setSessionExerciseFinished(
   );
 }
 
-export async function finishSession(db: SQLiteDatabase, sessionId: number): Promise<void> {
+export async function finishSession(
+  db: SQLiteDatabase,
+  sessionId: number,
+): Promise<void> {
   await db.executeSql(
     `UPDATE sessions SET finished = 1, trained_at = datetime('now') WHERE id = ?`,
     [sessionId],
@@ -537,7 +699,10 @@ export interface StatsPoint {
   max_reps: number | null;
 }
 
-export async function fetchExerciseStats(db: SQLiteDatabase, exerciseSlug: string): Promise<StatsPoint[]> {
+export async function fetchExerciseStats(
+  db: SQLiteDatabase,
+  exerciseSlug: string,
+): Promise<StatsPoint[]> {
   const [res] = await db.executeSql(
     `SELECT
        DATE(s_day.trained_at) AS date,
@@ -557,8 +722,12 @@ export async function fetchExerciseStats(db: SQLiteDatabase, exerciseSlug: strin
   return res.rows.raw();
 }
 
-export async function fetchAllExerciseSlugs(db: SQLiteDatabase): Promise<{slug: string; name: string}[]> {
-  const [res] = await db.executeSql(`SELECT slug, name FROM exercises ORDER BY name ASC`);
+export async function fetchAllExerciseSlugs(
+  db: SQLiteDatabase,
+): Promise<{slug: string; name: string}[]> {
+  const [res] = await db.executeSql(
+    `SELECT slug, name FROM exercises ORDER BY name ASC`,
+  );
   return res.rows.raw();
 }
 
@@ -610,6 +779,7 @@ export async function fetchHomeSummary(
   const currentWeek: Week = {
     id: first.week_id,
     plan_id: activePlanId,
+    plan_name: activePlan.name,
     created_at: first.created_at,
     finished: first.week_finished,
     sessions,

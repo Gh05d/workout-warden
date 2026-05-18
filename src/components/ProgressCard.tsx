@@ -31,14 +31,17 @@ const ProgressCard: React.FC<Props> = ({week, onPress}) => {
     .sort();
   const firstDate = trainedDates[0] ?? null;
   // "Last" is only meaningful when the whole week is done; otherwise show "?".
-  const lastDate = done === total ? trainedDates[trainedDates.length - 1] : null;
+  const lastDate =
+    done === total ? trainedDates[trainedDates.length - 1] : null;
   const dateRange = firstDate
     ? `${shortDate(firstDate)} – ${shortDate(lastDate)}`
     : '';
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      <AppText style={styles.label}>Week {week.id}</AppText>
+      <AppText style={styles.label} bold>
+        WEEK {week.id}
+      </AppText>
       <View style={styles.barWrapper}>
         <View style={[styles.barFill, {flex: pct}]} />
         <View style={[styles.barEmpty, {flex: 1 - pct}]} />
@@ -53,29 +56,23 @@ const ProgressCard: React.FC<Props> = ({week, onPress}) => {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.rule,
     padding: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   label: {
-    fontSize: 12,
-    color: '#999',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: 11,
+    color: colors.faint,
+    letterSpacing: 1.4,
     marginBottom: 8,
   },
   barWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 28,
-    borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#eee',
+    backgroundColor: '#EEEEEE',
     position: 'relative',
   },
   barFill: {height: '100%', backgroundColor: colors.primary},
@@ -83,10 +80,11 @@ const styles = StyleSheet.create({
   barLabel: {
     position: 'absolute',
     alignSelf: 'center',
-    fontSize: 13,
+    fontSize: 12,
     color: '#222',
+    letterSpacing: 1,
   },
-  dateRange: {marginTop: 8, fontSize: 13, color: '#666'},
+  dateRange: {marginTop: 8, fontSize: 13, color: colors.muted},
 });
 
 export default ProgressCard;

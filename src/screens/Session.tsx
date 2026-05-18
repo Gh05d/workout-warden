@@ -1,12 +1,13 @@
 // src/screens/Session.tsx
 import React from 'react';
-import {Button, ScrollView, StyleSheet, View} from 'react-native';
+import {ScrollView, StyleSheet, View} from 'react-native';
 import {useFocusEffect} from '@react-navigation/native';
 
 import Loading from '../components/Loading';
 import ErrorComp from '../components/Error';
 import Exercise from '../components/Exercise';
 import LoadingModal from '../components/LoadingModal';
+import TacticalButton from '../components/TacticalButton';
 import Toast from '../components/Toast';
 import AppText from '../components/AppText';
 
@@ -14,11 +15,13 @@ import {colors} from '../common/theme';
 import {
   createWeek,
   fetchActivePlanId,
+  fetchExerciseHistory,
   fetchWeekById,
   fetchWeeksByPlan,
   finishSession,
   getDBConnection,
 } from '../common/databaseService';
+import type {ExerciseHistory} from '../common/databaseService';
 import type {BaseProps, ExerciseInstance, Session, Week} from '../common/types';
 
 interface RouteParams {
@@ -31,7 +34,10 @@ function groupByCircuit(exercises: ExerciseInstance[]): Array<{
   circuit_rounds: number | null;
   exercises: ExerciseInstance[];
 }> {
-  const out: Array<{circuit_rounds: number | null; exercises: ExerciseInstance[]}> = [];
+  const out: Array<{
+    circuit_rounds: number | null;
+    exercises: ExerciseInstance[];
+  }> = [];
   for (const ex of exercises) {
     const last = out[out.length - 1];
     if (
@@ -55,6 +61,10 @@ const SessionScreen: React.FC<BaseProps> = ({navigation, route}) => {
   const {weekID, day_index} = route.params as RouteParams;
 
   const [currentWeek, setCurrentWeek] = React.useState<Week | null>(null);
+  const [history, setHistory] = React.useState<Map<number, ExerciseHistory>>(
+    new Map(),
+  );
+  const [finishedDelta, setFinishedDelta] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
   const [updating, setUpdating] = React.useState(false);
   const [error, setError] = React.useState<Error | null>(null);
@@ -84,13 +94,24 @@ const SessionScreen: React.FC<BaseProps> = ({navigation, route}) => {
             }
           }
           setCurrentWeek(week);
+          setFinishedDelta(0);
+          const session = week?.sessions.find(s => s.day_index === day_index);
+          if (session && session.exercises.length > 0) {
+            const exerciseIds = session.exercises.map(e => e.exercise_id);
+            const hist = await fetchExerciseHistory(
+              db,
+              exerciseIds,
+              session.id,
+            );
+            setHistory(hist);
+          }
         } catch (err) {
           setError(err as Error);
         } finally {
           setLoading(false);
         }
       })();
-    }, [weekID]),
+    }, [weekID, day_index]),
   );
 
   const currentSession: Session | undefined = currentWeek?.sessions.find(
@@ -121,7 +142,9 @@ const SessionScreen: React.FC<BaseProps> = ({navigation, route}) => {
       // writes don't propagate up to currentWeek until the next useFocusEffect.
       const db = await getDBConnection();
       const freshWeek = await fetchWeekById(db, currentWeek!.id);
-      const freshSession = freshWeek?.sessions.find(s => s.id === currentSession.id);
+      const freshSession = freshWeek?.sessions.find(
+        s => s.id === currentSession.id,
+      );
       if (!freshSession) throw new Error('Session not found');
       const allDone = freshSession.exercises.every(e => e.finished);
       if (!allDone) throw new Error('There are still exercises open');
@@ -147,10 +170,30 @@ const SessionScreen: React.FC<BaseProps> = ({navigation, route}) => {
 
   if (loading) return <Loading text="Loading Training" />;
   if (error) return <ErrorComp error={error} />;
-  if (!currentSession) return <ErrorComp error={new Error('Session not found')} />;
+  if (!currentSession)
+    return <ErrorComp error={new Error('Session not found')} />;
+
+  const total = currentSession.exercises.length;
+  const initialFinished = currentSession.exercises.filter(
+    e => e.finished,
+  ).length;
+  const done = Math.max(0, Math.min(total, initialFinished + finishedDelta));
+  const progressPct = total === 0 ? 0 : Math.round((done / total) * 100);
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={{paddingBottom: 30, gap: 30}}>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={{paddingBottom: 30, gap: 30}}>
+      <View style={styles.progressPill}>
+        <View style={[styles.progressFill, {width: `${progressPct}%`}]} />
+        <View style={styles.progressContent}>
+          <AppText bold style={styles.progressText}>
+            {`${done} / ${total} DONE`}
+          </AppText>
+          <AppText style={styles.progressPct}>{`${progressPct}%`}</AppText>
+        </View>
+      </View>
+
       {groupByCircuit(currentSession.exercises).map((group, gi) => (
         <View key={gi} style={group.circuit_rounds ? styles.circuit : null}>
           {group.circuit_rounds && (
@@ -159,30 +202,46 @@ const SessionScreen: React.FC<BaseProps> = ({navigation, route}) => {
             </View>
           )}
           {group.exercises.map(ex => (
-            <Exercise key={ex.id} exercise={ex} />
+            <Exercise
+              key={ex.id}
+              exercise={ex}
+              history={history.get(ex.exercise_id)}
+              onFinishedChange={isDone =>
+                setFinishedDelta(d => d + (isDone ? 1 : -1))
+              }
+            />
           ))}
         </View>
       ))}
 
-      <Button
-        color={colors.primary}
+      <TacticalButton
+        variant={currentSession.finished ? 'green' : 'primary'}
+        icon={currentSession.finished ? 'check-circle' : 'flag'}
         onPress={handleFinish}
-        title={currentSession.finished ? 'Update day' : 'Finish day'}
+        title={currentSession.finished ? 'Update Day' : 'Finish Day'}
+        fullWidth
       />
 
       {updating && <LoadingModal loading={updating} />}
       {!!finishError && (
-        <Toast type="error" message={finishError} onClose={() => setFinishError(null)} />
+        <Toast
+          type="error"
+          message={finishError}
+          onClose={() => setFinishError(null)}
+        />
       )}
       {success && (
-        <Toast message="Put your cheeso in my taco, bro" onClose={() => setSuccess(false)} />
+        <Toast
+          message="Put your cheeso in my taco, bro"
+          onClose={() => setSuccess(false)}
+        />
       )}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  root: {flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, padding: 16},
+  root: {flex: 1, backgroundColor: colors.cream, padding: 16},
   circuit: {
     borderLeftWidth: 3,
     borderLeftColor: colors.primary,
@@ -195,6 +254,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 4,
+  },
+  progressPill: {
+    backgroundColor: '#111111',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  progressFill: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: colors.primary,
+  },
+  progressContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  progressText: {color: '#FFFFFF', fontSize: 12, letterSpacing: 1.4},
+  progressPct: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    letterSpacing: 1.4,
+    opacity: 0.85,
   },
 });
 

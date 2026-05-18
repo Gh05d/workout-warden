@@ -5,6 +5,7 @@ import MaterialIcons from '@react-native-vector-icons/material-icons';
 
 import AppText from './AppText';
 import {colors} from '../common/theme';
+import {planColor} from '../common/planColor';
 import type {Plan} from '../common/types';
 
 interface Props {
@@ -40,6 +41,7 @@ const PlanSwitcherModal: React.FC<Props> = ({
       <ScrollView contentContainerStyle={styles.list}>
         {plans.map(p => {
           const isActive = p.id === activePlanId;
+          const c = planColor(p.id);
           return (
             <Pressable
               key={p.id}
@@ -48,10 +50,13 @@ const PlanSwitcherModal: React.FC<Props> = ({
                 else onClose();
               }}
               style={[styles.row, isActive && styles.rowActive]}>
-              <View style={{flex: 1}}>
-                <AppText bold style={styles.rowName}>
-                  {p.name}
-                </AppText>
+              <View style={[styles.rail, {backgroundColor: c.fg}]} />
+              <View style={styles.rowBody}>
+                <View style={[styles.pill, {backgroundColor: c.bg}]}>
+                  <AppText style={[styles.pillText, {color: c.fg}]} bold>
+                    {p.name.toUpperCase()}
+                  </AppText>
+                </View>
                 {!!p.description && (
                   <AppText style={styles.rowDescription}>
                     {p.description}
@@ -95,17 +100,24 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10,
-    padding: 14,
+    backgroundColor: '#FAFAFA',
+    overflow: 'hidden',
   },
   rowActive: {
-    backgroundColor: '#fff3e0',
+    backgroundColor: '#FFF8EE',
     borderWidth: 1,
     borderColor: colors.primary,
   },
-  rowName: {fontSize: 16, color: '#222'},
-  rowDescription: {fontSize: 13, color: '#666', marginTop: 2},
+  rail: {width: 4, alignSelf: 'stretch'},
+  rowBody: {flex: 1, padding: 14, gap: 6},
+  pill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  pillText: {fontSize: 11, letterSpacing: 1.4},
+  rowDescription: {fontSize: 13, color: '#666'},
   hint: {
     fontSize: 12,
     color: '#999',

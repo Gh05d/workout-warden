@@ -15,7 +15,9 @@ interface Props {
 }
 
 function sessionLabel(s: Session): string {
-  return s.weekday_label ? `${s.session_name}: ${s.weekday_label}` : s.session_name;
+  return s.weekday_label
+    ? `${s.session_name}: ${s.weekday_label}`
+    : s.session_name;
 }
 
 const NextSessionCard: React.FC<Props> = ({
@@ -29,7 +31,9 @@ const NextSessionCard: React.FC<Props> = ({
     const weekNumber = (currentWeek?.id ?? 0) + 1;
     return (
       <Pressable style={styles.card} onPress={onCreateNextWeek}>
-        <AppText style={styles.label}>Next up</AppText>
+        <AppText style={styles.label} bold>
+          NEXT UP
+        </AppText>
         <AppText bold style={styles.title}>
           {currentWeek ? `Week ${currentWeek.id} done!` : 'Ready to start?'}
         </AppText>
@@ -50,7 +54,9 @@ const NextSessionCard: React.FC<Props> = ({
     // Shouldn't happen if week.finished is consistent with sessions, but render safely
     return (
       <View style={styles.card}>
-        <AppText style={styles.label}>Next up</AppText>
+        <AppText style={styles.label} bold>
+          NEXT UP
+        </AppText>
         <AppText italic>No next session found</AppText>
       </View>
     );
@@ -62,7 +68,9 @@ const NextSessionCard: React.FC<Props> = ({
     <Pressable
       style={styles.card}
       onPress={() => onStartSession(nextSession, currentWeek)}>
-      <AppText style={styles.label}>Next up</AppText>
+      <AppText style={styles.label} bold>
+        NEXT UP
+      </AppText>
       <AppText bold style={styles.title}>
         {sessionLabel(nextSession)}
       </AppText>
@@ -72,7 +80,7 @@ const NextSessionCard: React.FC<Props> = ({
         </AppText>
         <View style={styles.startButton}>
           <AppText bold style={styles.startText}>
-            Start
+            START
           </AppText>
           <MaterialIcons name="play-arrow" size={18} color="#fff" />
         </View>
@@ -83,20 +91,17 @@ const NextSessionCard: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.rule,
     padding: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.primary,
   },
   label: {
-    fontSize: 12,
-    color: '#999',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: 11,
+    color: colors.faint,
+    letterSpacing: 1.4,
     marginBottom: 4,
   },
   title: {fontSize: 20, color: '#222', marginBottom: 8},
@@ -105,17 +110,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  meta: {fontSize: 13, color: '#666'},
+  meta: {fontSize: 13, color: colors.muted},
   startButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.primary,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     gap: 4,
   },
-  startText: {color: '#fff', fontSize: 13},
+  startText: {color: '#fff', fontSize: 12, letterSpacing: 1.4},
 });
 
 export default NextSessionCard;

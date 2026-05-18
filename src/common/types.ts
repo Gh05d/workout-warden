@@ -11,6 +11,7 @@ interface ExerciseSeed {
   slug: string;
   name: string;
   video?: string;
+  description?: string;
 }
 
 interface ExercisePrescription {
@@ -79,6 +80,7 @@ interface ExerciseInstance {
   exercise_id: number;
   exercise_slug: string;
   exercise_name: string;
+  exercise_description: string | null;
   video: string | null;
   order_index: number;
   circuit_index: number | null;
@@ -108,6 +110,7 @@ interface Session {
 interface Week {
   id: number;
   plan_id: number;
+  plan_name: string;
   created_at: string;
   finished: 0 | 1;
   sessions: Session[];

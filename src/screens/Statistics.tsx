@@ -1,7 +1,7 @@
 // src/screens/Statistics.tsx
 import React from 'react';
 import {StyleSheet, View, useWindowDimensions} from 'react-native';
-import {CartesianChart, Bar} from 'victory-native';
+import {CartesianChart, Bar, Line} from 'victory-native';
 import roboto from '../../assets/Roboto-Medium.ttf';
 import {LinearGradient, useFont, vec} from '@shopify/react-native-skia';
 
@@ -41,7 +41,9 @@ function makeFormatXLabel(spanMs: number) {
 }
 
 const Statistics: React.FC<BaseProps> = () => {
-  const [exercises, setExercises] = React.useState<{slug: string; name: string}[]>([]);
+  const [exercises, setExercises] = React.useState<
+    {slug: string; name: string}[]
+  >([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
   const [success, setSuccess] = React.useState('');
@@ -68,9 +70,7 @@ const Statistics: React.FC<BaseProps> = () => {
     if (!found) return;
     const db = await getDBConnection();
     const stats: StatsPoint[] = await fetchExerciseStats(db, found.slug);
-    setData(
-      stats.map(p => ({ts: Date.parse(p.date), weight: p.max_weight})),
-    );
+    setData(stats.map(p => ({ts: Date.parse(p.date), weight: p.max_weight})));
   }
 
   if (loading) return <Loading text="Loading Statistics" />;
@@ -98,16 +98,24 @@ const Statistics: React.FC<BaseProps> = () => {
             xKey="ts"
             yKeys={['weight']}>
             {({points, chartBounds}) => (
-              <Bar
-                chartBounds={chartBounds}
-                points={points.weight}
-                roundedCorners={{topLeft: 5, topRight: 5}}>
-                <LinearGradient
-                  start={vec(0, 0)}
-                  end={vec(0, 600)}
-                  colors={[colors.primary, '#a78bfa']}
+              <>
+                <Bar
+                  chartBounds={chartBounds}
+                  points={points.weight}
+                  roundedCorners={{topLeft: 5, topRight: 5}}>
+                  <LinearGradient
+                    start={vec(0, 0)}
+                    end={vec(0, 600)}
+                    colors={[colors.primary, '#a78bfa']}
+                  />
+                </Bar>
+                <Line
+                  points={points.weight}
+                  color="#1f2937"
+                  strokeWidth={2}
+                  curveType="monotoneX"
                 />
-              </Bar>
+              </>
             )}
           </CartesianChart>
         </View>
@@ -118,7 +126,13 @@ const Statistics: React.FC<BaseProps> = () => {
 };
 
 const styles = StyleSheet.create({
-  root: {flex: 1, backgroundColor: '#fff', padding: 16, justifyContent: 'space-between', gap: 16},
+  root: {
+    flex: 1,
+    backgroundColor: colors.cream,
+    padding: 16,
+    justifyContent: 'space-between',
+    gap: 16,
+  },
 });
 
 export default Statistics;

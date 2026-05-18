@@ -35,6 +35,8 @@ const Toast: React.FC<ToastProps> = ({message, type, onClose}) => {
     );
   }
 
+  const railColor = type === 'error' ? '#E53935' : colors.secondary;
+
   return (
     <View style={styles.wrapper}>
       <Animated.View
@@ -50,11 +52,13 @@ const Toast: React.FC<ToastProps> = ({message, type, onClose}) => {
               },
             ],
             opacity: fadeAnimation,
-            backgroundColor: type == 'error' ? 'red' : colors.secondary,
           },
         ]}>
-        <Pressable onPress={closeToast}>
-          <AppText style={styles.message}>{message}</AppText>
+        <Pressable onPress={closeToast} style={styles.row}>
+          <View style={[styles.rail, {backgroundColor: railColor}]} />
+          <AppText style={styles.message} bold>
+            {message}
+          </AppText>
         </Pressable>
       </Animated.View>
     </View>
@@ -66,15 +70,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 80,
     right: 10,
+    left: 10,
     zIndex: 10,
   },
   container: {
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 10,
+    backgroundColor: colors.ink,
+    overflow: 'hidden',
   },
-  message: {color: 'white'},
+  row: {flexDirection: 'row', alignItems: 'stretch'},
+  rail: {width: 4},
+  message: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    letterSpacing: 0.6,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    flexShrink: 1,
+  },
 });
 
 export default Toast;

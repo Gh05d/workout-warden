@@ -1,9 +1,10 @@
 // src/screens/Weeks.tsx
 import React from 'react';
 import {useFocusEffect} from '@react-navigation/native';
-import {Button, FlatList, RefreshControl, StyleSheet, View} from 'react-native';
+import {FlatList, RefreshControl, StyleSheet, View} from 'react-native';
 
 import AppText from '../components/AppText';
+import TacticalButton from '../components/TacticalButton';
 import Toast from '../components/Toast';
 import LoadingModal from '../components/LoadingModal';
 import ErrorComp from '../components/Error';
@@ -14,13 +15,15 @@ import {colors} from '../common/theme';
 import {
   createWeek,
   fetchActivePlanId,
-  fetchWeeksByPlan,
+  fetchAllWeeks,
   getDBConnection,
 } from '../common/databaseService';
 import type {BaseProps, Week} from '../common/types';
 
 const Weeks: React.FC<BaseProps> = () => {
-  const [activePlanId, setActivePlanIdState] = React.useState<number | null>(null);
+  const [activePlanId, setActivePlanIdState] = React.useState<number | null>(
+    null,
+  );
   const [weeks, setWeeks] = React.useState<Week[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [initError, setInitError] = React.useState<null | Error>(null);
@@ -29,9 +32,9 @@ const Weeks: React.FC<BaseProps> = () => {
   const [refreshing, setRefreshing] = React.useState(false);
   const [success, setSuccess] = React.useState('');
 
-  const refresh = React.useCallback(async (planId: number) => {
+  const refresh = React.useCallback(async () => {
     const db = await getDBConnection();
-    setWeeks(await fetchWeeksByPlan(db, planId));
+    setWeeks(await fetchAllWeeks(db));
   }, []);
 
   useFocusEffect(
@@ -40,9 +43,8 @@ const Weeks: React.FC<BaseProps> = () => {
         setLoading(true);
         try {
           const db = await getDBConnection();
-          const active = await fetchActivePlanId(db);
-          setActivePlanIdState(active);
-          if (active != null) await refresh(active);
+          setActivePlanIdState(await fetchActivePlanId(db));
+          await refresh();
         } catch (err) {
           setInitError(err as Error);
         } finally {
@@ -58,7 +60,7 @@ const Weeks: React.FC<BaseProps> = () => {
     try {
       const db = await getDBConnection();
       await createWeek(db, activePlanId);
-      await refresh(activePlanId);
+      await refresh();
       setSuccess('Added new Week');
     } catch (err) {
       setError(err as Error);
@@ -68,9 +70,8 @@ const Weeks: React.FC<BaseProps> = () => {
   }
 
   async function handleRefresh() {
-    if (activePlanId == null) return;
     setRefreshing(true);
-    await refresh(activePlanId);
+    await refresh();
     setRefreshing(false);
   }
 
@@ -102,24 +103,30 @@ const Weeks: React.FC<BaseProps> = () => {
         />
       )}
 
-      <Button
-        color={colors.primary}
-        title="Add new Week"
+      <TacticalButton
+        title="Add New Week"
+        icon="add"
         onPress={handleAddWeek}
         disabled={updating || activePlanId == null}
+        loading={updating}
+        fullWidth
       />
 
       <LoadingModal loading={updating} />
       {!!success && <Toast message={success} onClose={() => setSuccess('')} />}
       {error && (
-        <Toast type="error" message={error.message} onClose={() => setError(null)} />
+        <Toast
+          type="error"
+          message={error.message}
+          onClose={() => setError(null)}
+        />
       )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1, padding: 16, backgroundColor: '#fff'},
+  container: {flex: 1, padding: 16, backgroundColor: colors.cream, gap: 12},
   empty: {flex: 1, justifyContent: 'center', alignItems: 'center'},
   list: {flex: 1},
 });

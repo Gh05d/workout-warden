@@ -7,6 +7,7 @@ import AppText from './AppText';
 
 import {displayDate, formatTime} from '../common/functions';
 import {deleteWeek, getDBConnection} from '../common/databaseService';
+import {planColor} from '../common/planColor';
 import {boxShadow, row} from '../common/styles';
 import {colors} from '../common/theme';
 import type {Week} from '../common/types';
@@ -18,8 +19,14 @@ interface Props {
   setError: (e: Error | null) => void;
 }
 
-const WeekAccordion: React.FC<Props> = ({week, setWeeks, setUpdating, setError}) => {
-  const {id, created_at, sessions, finished} = week;
+const WeekAccordion: React.FC<Props> = ({
+  week,
+  setWeeks,
+  setUpdating,
+  setError,
+}) => {
+  const {id, plan_id, plan_name, created_at, sessions, finished} = week;
+  const pill = planColor(plan_id);
 
   // Derive a date range from the trained_at timestamps on the sessions. If
   // none were trained yet, fall back to created_at as the start so the header
@@ -49,10 +56,27 @@ const WeekAccordion: React.FC<Props> = ({week, setWeeks, setUpdating, setError})
     }
   }
 
+  const header = (
+    <View style={styles.headerRow}>
+      <AppText bold style={styles.headerTitle}>
+        {`Week ${id} ${dateLabel}`}
+      </AppText>
+      <View style={[styles.pill, {backgroundColor: pill.bg}]}>
+        <AppText style={[styles.pillText, {color: pill.fg}]} bold>
+          {plan_name}
+        </AppText>
+      </View>
+    </View>
+  );
+
   return (
     <Accordion
-      style={!!finished && {backgroundColor: colors.secondary}}
-      title={`Woche ${id} ${dateLabel}`}
+      style={[
+        styles.accordionHeader,
+        !!finished && {backgroundColor: colors.secondary},
+      ]}
+      iconColor="#FFFFFF"
+      HeaderComponent={header}
       closed={!!finished}
       controlIcon="expand-more">
       <View
@@ -73,10 +97,11 @@ const WeekAccordion: React.FC<Props> = ({week, setWeeks, setUpdating, setError})
 
         <Pressable
           onPress={() =>
-            Alert.alert('Delete Week', 'Do you really want to delete this week', [
-              {text: 'Cancel'},
-              {text: 'Confirm', onPress: handleDelete},
-            ])
+            Alert.alert(
+              'Delete Week',
+              'Do you really want to delete this week',
+              [{text: 'Cancel'}, {text: 'Confirm', onPress: handleDelete}],
+            )
           }>
           <MaterialIcons
             style={styles.icon}
@@ -125,7 +150,9 @@ const WeekAccordion: React.FC<Props> = ({week, setWeeks, setUpdating, setError})
                     {exercise.exercise_name}:
                   </AppText>
                   {exercise.prescribed_seconds != null ? (
-                    <AppText>{formatTime(exercise.prescribed_seconds)} min</AppText>
+                    <AppText>
+                      {formatTime(exercise.prescribed_seconds)} min
+                    </AppText>
                   ) : exercise.sets[0]?.reps != null ? (
                     <AppText>{exercise.sets[0].reps} Reps</AppText>
                   ) : exercise.prescribed_reps != null ? (
@@ -156,7 +183,23 @@ const WeekAccordion: React.FC<Props> = ({week, setWeeks, setUpdating, setError})
 };
 
 const styles = StyleSheet.create({
+  accordionHeader: {backgroundColor: colors.ink},
   header: {backgroundColor: '#ccc', padding: 8},
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginLeft: 8,
+    gap: 8,
+  },
+  headerTitle: {color: '#fff', flexShrink: 1, letterSpacing: 0.5},
+  pill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 'auto',
+  },
+  pillText: {fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5},
   row: {
     flexDirection: 'row',
     alignItems: 'center',

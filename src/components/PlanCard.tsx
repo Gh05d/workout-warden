@@ -5,6 +5,7 @@ import MaterialIcons from '@react-native-vector-icons/material-icons';
 
 import AppText from './AppText';
 import {colors} from '../common/theme';
+import {planColor} from '../common/planColor';
 import type {Plan} from '../common/types';
 
 interface Props {
@@ -12,55 +13,56 @@ interface Props {
   onPress: () => void;
 }
 
-const PlanCard: React.FC<Props> = ({plan, onPress}) => (
-  <Pressable onPress={onPress} style={styles.card}>
-    <View style={styles.headerRow}>
-      <AppText style={styles.label}>Active Plan</AppText>
-      <MaterialIcons name="swap-horiz" size={22} color={colors.primary} />
-    </View>
-    <AppText bold style={styles.planName}>
-      {plan.name}
-    </AppText>
-    {!!plan.description && (
-      <AppText style={styles.description} numberOfLines={2}>
-        {plan.description}
-      </AppText>
-    )}
-  </Pressable>
-);
+const PlanCard: React.FC<Props> = ({plan, onPress}) => {
+  const c = planColor(plan.id);
+  return (
+    <Pressable onPress={onPress} style={styles.card}>
+      <View style={[styles.rail, {backgroundColor: c.fg}]} />
+      <View style={styles.body}>
+        <View style={styles.headerRow}>
+          <View style={[styles.pill, {backgroundColor: c.bg}]}>
+            <AppText style={[styles.pillText, {color: c.fg}]} bold>
+              ACTIVE PLAN
+            </AppText>
+          </View>
+          <MaterialIcons name="swap-horiz" size={22} color={colors.primary} />
+        </View>
+        <AppText bold style={[styles.planName, {color: c.fg}]}>
+          {plan.name}
+        </AppText>
+        {!!plan.description && (
+          <AppText style={styles.description} numberOfLines={2}>
+            {plan.description}
+          </AppText>
+        )}
+      </View>
+    </Pressable>
+  );
+};
 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    flexDirection: 'row',
+    overflow: 'hidden',
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 1},
     shadowOpacity: 0.1,
     shadowRadius: 2,
   },
+  rail: {width: 4},
+  body: {flex: 1, padding: 16},
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
   },
-  label: {
-    fontSize: 12,
-    color: '#999',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  planName: {
-    fontSize: 22,
-    color: colors.primary,
-    marginBottom: 4,
-  },
-  description: {
-    fontSize: 13,
-    color: '#666',
-  },
+  pill: {paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10},
+  pillText: {fontSize: 10, letterSpacing: 1.4},
+  planName: {fontSize: 22, marginBottom: 4},
+  description: {fontSize: 13, color: '#666'},
 });
 
 export default PlanCard;

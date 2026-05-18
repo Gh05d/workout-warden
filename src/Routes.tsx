@@ -1,7 +1,12 @@
 // src/Routes.tsx
 import React from 'react';
-import {ActivityIndicator, StatusBar, useColorScheme, View} from 'react-native';
-import {DefaultTheme, NavigationContainer, Theme, useFocusEffect} from '@react-navigation/native';
+import {ActivityIndicator, StatusBar, View} from 'react-native';
+import {
+  DefaultTheme,
+  NavigationContainer,
+  Theme,
+  useFocusEffect,
+} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createMaterialTopTabNavigator} from '@react-navigation/material-top-tabs';
 import MaterialIcons from '@react-native-vector-icons/material-icons';
@@ -24,8 +29,9 @@ const SubTab = createMaterialTopTabNavigator();
 
 const renderTabBarIcon =
   (name: string) =>
-  ({color, size}: {color: string; size: number}) =>
-    <MaterialIcons name={name as any} color={color} size={size} />;
+  ({color, size}: {color: string; size: number}) => (
+    <MaterialIcons name={name as any} color={color} size={size} />
+  );
 
 const SessionsTabs: React.FC<BaseProps> = ({route}) => {
   const [days, setDays] = React.useState<PlanDay[] | null>(null);
@@ -55,7 +61,30 @@ const SessionsTabs: React.FC<BaseProps> = ({route}) => {
   return (
     <SubTab.Navigator
       backBehavior="history"
-      screenOptions={{tabBarScrollEnabled: true, tabBarBounces: true, lazy: true}}>
+      screenOptions={{
+        tabBarScrollEnabled: true,
+        tabBarBounces: true,
+        lazy: true,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: '#9A9A9A',
+        tabBarStyle: {
+          backgroundColor: colors.ink,
+          elevation: 0,
+          shadowOpacity: 0,
+          borderBottomWidth: 0,
+        },
+        tabBarIndicatorStyle: {
+          backgroundColor: colors.primary,
+          height: 3,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '700',
+          letterSpacing: 1.2,
+          textTransform: 'uppercase',
+        },
+        tabBarItemStyle: {width: 'auto', paddingHorizontal: 14},
+      }}>
       {days.map(day => {
         const label = day.weekday_label
           ? `${day.session_template_name}: ${day.weekday_label}`
@@ -80,25 +109,72 @@ const SessionsTabs: React.FC<BaseProps> = ({route}) => {
 const Routes: React.FC<{puppy: string}> = ({puppy}) => {
   const AppTheme: Theme = {
     ...DefaultTheme,
-    colors: {...DefaultTheme.colors, ...colors},
+    colors: {
+      ...DefaultTheme.colors,
+      primary: colors.primary,
+      background: colors.cream,
+      card: colors.ink,
+      text: '#FFFFFF',
+      border: colors.rule,
+      notification: colors.primary,
+    },
   };
-  const isDarkMode = useColorScheme() === 'dark';
 
   return (
     <NavigationContainer theme={AppTheme}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.primary}
-      />
-      <Tab.Navigator backBehavior="history" initialRouteName="Home">
-        <Tab.Screen name="Home" component={HomeScreen} initialParams={{puppy}}
-          options={{tabBarIcon: renderTabBarIcon('home')}} />
-        <Tab.Screen name="Weeks" component={Weeks}
-          options={{tabBarIcon: renderTabBarIcon('save-as')}} />
-        <Tab.Screen name="Sessions" component={SessionsTabs}
-          options={{tabBarIcon: renderTabBarIcon('fitness-center')}} />
-        <Tab.Screen name="Statistics" component={StatisticsScreen}
-          options={{tabBarIcon: renderTabBarIcon('bar-chart')}} />
+      <StatusBar barStyle="light-content" backgroundColor={colors.ink} />
+      <Tab.Navigator
+        backBehavior="history"
+        initialRouteName="Home"
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: colors.ink,
+            elevation: 0,
+            shadowOpacity: 0,
+          },
+          headerTintColor: '#FFFFFF',
+          headerTitleStyle: {
+            fontWeight: '700',
+            letterSpacing: 1.4,
+          },
+          tabBarStyle: {
+            backgroundColor: colors.ink,
+            borderTopWidth: 0,
+            elevation: 0,
+            height: 64,
+            paddingTop: 8,
+            paddingBottom: 8,
+          },
+          tabBarActiveTintColor: colors.primary,
+          tabBarInactiveTintColor: '#9A9A9A',
+          tabBarLabelStyle: {
+            fontSize: 10,
+            fontWeight: '700',
+            letterSpacing: 1,
+            textTransform: 'uppercase',
+          },
+        }}>
+        <Tab.Screen
+          name="Home"
+          component={HomeScreen}
+          initialParams={{puppy}}
+          options={{tabBarIcon: renderTabBarIcon('home')}}
+        />
+        <Tab.Screen
+          name="Weeks"
+          component={Weeks}
+          options={{tabBarIcon: renderTabBarIcon('save-as')}}
+        />
+        <Tab.Screen
+          name="Sessions"
+          component={SessionsTabs}
+          options={{tabBarIcon: renderTabBarIcon('fitness-center')}}
+        />
+        <Tab.Screen
+          name="Statistics"
+          component={StatisticsScreen}
+          options={{tabBarIcon: renderTabBarIcon('bar-chart')}}
+        />
       </Tab.Navigator>
     </NavigationContainer>
   );

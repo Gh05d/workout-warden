@@ -85,8 +85,9 @@ const SplashScreen: React.FC<Props> = ({
         resizeMode="cover">
         <Animated.View style={[styles.titleContainer, {opacity: imageOpacity}]}>
           <AppText bold style={[styles.title]}>
-            Workout Warden
+            WORKOUT WARDEN
           </AppText>
+          <AppText style={[styles.subtitle]}>STRENGTH JOURNAL</AppText>
         </Animated.View>
       </AnimatedImageBackground>
     </Animated.View>
@@ -100,11 +101,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
   },
-  titleContainer: {top: 40, alignItems: 'center'},
+  titleContainer: {top: 60, alignItems: 'center', gap: 6},
   title: {
-    fontSize: 30,
-    lineHeight: 30,
+    fontSize: 34,
+    lineHeight: 34,
+    letterSpacing: 4,
     color: colors.primary,
+  },
+  subtitle: {
+    fontSize: 10,
+    letterSpacing: 6,
+    color: '#F5F5F5',
+    opacity: 0.85,
   },
 });
 
