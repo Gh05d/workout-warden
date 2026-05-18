@@ -1,5 +1,5 @@
 import {SQLiteDatabase, openDatabase} from 'react-native-sqlite-storage';
-import RNFS from '@dr.pogodin/react-native-fs';
+import * as RNFS from '@dr.pogodin/react-native-fs';
 import {Alert} from 'react-native';
 import {EXERCISES, PLANS} from '../seeds';
 import {validateSeed} from './seedValidator';
