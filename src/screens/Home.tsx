@@ -81,7 +81,12 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
     try {
       const db = await getDBConnection();
       await createWeek(db, summary.activePlan.id);
-      await refresh();
+      const fresh = await fetchHomeSummary(db);
+      setSummary(fresh);
+      // Auto-navigate to the first session of the new week
+      if (fresh?.nextSession && fresh.currentWeek) {
+        handleStartSession(fresh.nextSession, fresh.currentWeek);
+      }
     } catch (err) {
       setToastError((err as Error).message);
     }
@@ -128,7 +133,7 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
           onCreateNextWeek={handleCreateNextWeek}
         />
 
-        {summary.currentWeek && !summary.currentWeek.finished && (
+        {summary.currentWeek && (
           <ProgressCard
             week={summary.currentWeek}
             onPress={() => navigation.navigate('Weeks')}

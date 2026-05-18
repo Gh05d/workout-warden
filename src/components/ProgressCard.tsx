@@ -23,13 +23,18 @@ const ProgressCard: React.FC<Props> = ({week, onPress}) => {
   const done = week.sessions.filter(s => s.finished).length;
   const pct = total === 0 ? 0 : done / total;
 
+  // Sort trained_at chronologically — sessions come ordered by day_index, but
+  // the user might train day 3 before day 1.
   const trainedDates = week.sessions
     .map(s => s.trained_at)
-    .filter((d): d is string => !!d);
+    .filter((d): d is string => !!d)
+    .sort();
   const firstDate = trainedDates[0] ?? null;
-  const lastDate = trainedDates[trainedDates.length - 1] ?? null;
-  const dateRange =
-    firstDate && lastDate ? `${shortDate(firstDate)} – ${shortDate(lastDate)}` : '';
+  // "Last" is only meaningful when the whole week is done; otherwise show "?".
+  const lastDate = done === total ? trainedDates[trainedDates.length - 1] : null;
+  const dateRange = firstDate
+    ? `${shortDate(firstDate)} – ${shortDate(lastDate)}`
+    : '';
 
   return (
     <Pressable style={styles.card} onPress={onPress}>

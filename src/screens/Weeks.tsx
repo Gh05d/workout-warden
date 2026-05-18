@@ -14,14 +14,12 @@ import {colors} from '../common/theme';
 import {
   createWeek,
   fetchActivePlanId,
-  fetchPlans,
   fetchWeeksByPlan,
   getDBConnection,
 } from '../common/databaseService';
-import type {BaseProps, Plan, Week} from '../common/types';
+import type {BaseProps, Week} from '../common/types';
 
 const Weeks: React.FC<BaseProps> = () => {
-  const [plans, setPlans] = React.useState<Plan[]>([]);
   const [activePlanId, setActivePlanIdState] = React.useState<number | null>(null);
   const [weeks, setWeeks] = React.useState<Week[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -42,9 +40,7 @@ const Weeks: React.FC<BaseProps> = () => {
         setLoading(true);
         try {
           const db = await getDBConnection();
-          const all = await fetchPlans(db);
-          setPlans(all);
-          const active = (await fetchActivePlanId(db)) ?? all[0]?.id ?? null;
+          const active = await fetchActivePlanId(db);
           setActivePlanIdState(active);
           if (active != null) await refresh(active);
         } catch (err) {
