@@ -223,18 +223,42 @@ export async function exportDatabase(): Promise<void> {
 }
 
 export async function importDatabase(importPath: string): Promise<void> {
+  const tempPath = `${DB_PATH_ANDROID}.import-tmp`;
   try {
+    // Copy to a tmp location first, then sanity-check the schema before
+    // clobbering the live DB. Prevents v1-format exports from corrupting
+    // the app's internal state.
+    await RNFS.copyFile(importPath, tempPath);
+    const tmp = await openDatabase({name: 'warden.db.import-tmp', location: 'default'});
+    const [check] = await tmp.executeSql(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name IN ('session_exercises','plans','session_templates')`,
+    );
+    await tmp.close();
+    if (check.rows.length < 3) {
+      throw new Error(
+        'This file is from an older app version (v1). Use the CLI legacy importer first (`npm run import:legacy <source.db> <target.db>`) to convert it to the v2 schema, then import the resulting file.',
+      );
+    }
+
+    // Schema looks OK — replace the live DB
     const db = await getDBConnection();
     await db.close();
-    await RNFS.copyFile(importPath, DB_PATH_ANDROID);
-    // Re-run initDB on the imported file: ensures the v2 schema is present
-    // (in case the imported DB is older), seeds plans that are missing
-    // (Surf/Strength), and sets active_plan_id if the imported DB didn't
-    // ship one — without this, the Home screen errors with "No active plan".
+    await RNFS.copyFile(tempPath, DB_PATH_ANDROID);
+
+    // Re-run initDB so the v2 schema (CREATE TABLE IF NOT EXISTS) covers
+    // any tables the imported file is missing, seedDB fills in Surf/
+    // Strength if absent, and active_plan_id gets defaulted.
     await initDB();
     Alert.alert('Success', 'Database imported successfully');
   } catch (error) {
     Alert.alert('Import failed', (error as Error)?.message);
+  } finally {
+    // Best-effort cleanup of the tmp copy
+    try {
+      await RNFS.unlink(tempPath);
+    } catch {
+      /* tmp may not exist, ignore */
+    }
   }
 }
 
