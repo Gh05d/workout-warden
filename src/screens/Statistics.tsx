@@ -20,8 +20,24 @@ import {
 import type {BaseProps} from '../common/types';
 
 interface ChartPoint {
-  day: number;
+  /** Unix timestamp in ms — used as the x-axis position so points are
+   * spaced by actual elapsed time, not by sample index. */
+  ts: number;
   weight: number | null;
+}
+
+/** Format a timestamp for the x-axis. Switches between "DD.MM" (short
+ * ranges, < 4 months) and "MM/YY" (long ranges) based on the data span. */
+function makeFormatXLabel(spanMs: number) {
+  const FOUR_MONTHS_MS = 4 * 30 * 24 * 3600 * 1000;
+  const long = spanMs > FOUR_MONTHS_MS;
+  return (ms: number) => {
+    const d = new Date(ms);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(2);
+    return long ? `${mm}/${yy}` : `${dd}.${mm}`;
+  };
 }
 
 const Statistics: React.FC<BaseProps> = () => {
@@ -52,11 +68,17 @@ const Statistics: React.FC<BaseProps> = () => {
     if (!found) return;
     const db = await getDBConnection();
     const stats: StatsPoint[] = await fetchExerciseStats(db, found.slug);
-    setData(stats.map((p, i) => ({day: i + 1, weight: p.max_weight})));
+    setData(
+      stats.map(p => ({ts: Date.parse(p.date), weight: p.max_weight})),
+    );
   }
 
   if (loading) return <Loading text="Loading Statistics" />;
   if (error) return <ErrorComp error={error}>{error.message}</ErrorComp>;
+
+  const tsMin = data.length ? data[0].ts : 0;
+  const tsMax = data.length ? data[data.length - 1].ts : 0;
+  const formatXLabel = makeFormatXLabel(tsMax - tsMin);
 
   return (
     <View style={styles.root}>
@@ -68,12 +90,12 @@ const Statistics: React.FC<BaseProps> = () => {
             domainPadding={{left: 30, top: 10, right: 30}}
             axisOptions={{
               font,
-              formatXLabel: v => 'Workout ' + v,
+              formatXLabel,
               formatYLabel: v => v + ' kg',
             }}
             domain={{y: [0]}}
             data={data}
-            xKey="day"
+            xKey="ts"
             yKeys={['weight']}>
             {({points, chartBounds}) => (
               <Bar
