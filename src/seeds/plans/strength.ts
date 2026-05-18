@@ -5,13 +5,13 @@ import type {PlanSeed} from '../../common/types';
 // is left as a future feature. v1 `next: true` chains are folded into
 // `circuit_index` groups with `circuit_rounds` = original prescribed_sets,
 // and each circuit member's `prescribed_sets` collapses to 1.
-export const STANDARD: PlanSeed = {
-  slug: 'standard',
-  name: 'Standard',
+export const STRENGTH: PlanSeed = {
+  slug: 'strength',
+  name: 'Strength',
   description: '5-day classic A/B split — legs / upper / mobility (from v1, A-week only)',
   session_templates: [
     {
-      slug: 'standard-reverse-step-up-leg-day',
+      slug: 'strength-reverse-step-up-leg-day',
       name: 'Reverse Step Up Leg Day',
       exercises: [
         {exercise_slug: 'sled',                order_index: 1, prescribed_sets: 1, prescribed_seconds: 300, per_side: false, as_maximum: false},
@@ -23,7 +23,7 @@ export const STANDARD: PlanSeed = {
       ],
     },
     {
-      slug: 'standard-chest-pressing-upper-body-day',
+      slug: 'strength-chest-pressing-upper-body-day',
       name: 'Chest Pressing Upper Body Day',
       exercises: [
         // Circuit: Chest Press + Tibialis Raise + Pullup + Straight Leg Calf Raise, 3 rounds
@@ -34,7 +34,7 @@ export const STANDARD: PlanSeed = {
       ],
     },
     {
-      slug: 'standard-mobility-day',
+      slug: 'strength-mobility-day',
       name: 'Mobility Day',
       exercises: [
         // Circuit: Pigeon Pushup + Butterfly Stretch + Jefferson Curl + Couch Stretch Lounge + Pullover, 3 rounds
@@ -46,7 +46,7 @@ export const STANDARD: PlanSeed = {
       ],
     },
     {
-      slug: 'standard-split-squat-leg-day',
+      slug: 'strength-split-squat-leg-day',
       name: 'Split Squat Leg Day',
       exercises: [
         {exercise_slug: 'sled',          order_index: 1, prescribed_sets: 1, prescribed_seconds: 300, per_side: false, as_maximum: false},
@@ -59,7 +59,7 @@ export const STANDARD: PlanSeed = {
       ],
     },
     {
-      slug: 'standard-shoulder-pressing-upper-body-day',
+      slug: 'strength-shoulder-pressing-upper-body-day',
       name: 'Shoulder Pressing Upper Body Day',
       exercises: [
         // Circuit: Shoulder Press + Tibialis Raise + External Rotation + Bent Leg Calf Raise + Neck Flexion, 3 rounds
@@ -72,10 +72,10 @@ export const STANDARD: PlanSeed = {
     },
   ],
   days: [
-    {day_index: 1, session_template_slug: 'standard-reverse-step-up-leg-day'},
-    {day_index: 2, session_template_slug: 'standard-chest-pressing-upper-body-day'},
-    {day_index: 3, session_template_slug: 'standard-mobility-day'},
-    {day_index: 4, session_template_slug: 'standard-split-squat-leg-day'},
-    {day_index: 5, session_template_slug: 'standard-shoulder-pressing-upper-body-day'},
+    {day_index: 1, session_template_slug: 'strength-reverse-step-up-leg-day'},
+    {day_index: 2, session_template_slug: 'strength-chest-pressing-upper-body-day'},
+    {day_index: 3, session_template_slug: 'strength-mobility-day'},
+    {day_index: 4, session_template_slug: 'strength-split-squat-leg-day'},
+    {day_index: 5, session_template_slug: 'strength-shoulder-pressing-upper-body-day'},
   ],
 };
