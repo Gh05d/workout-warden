@@ -1,5 +1,6 @@
 // src/screens/Weeks.tsx
 import React from 'react';
+import {useFocusEffect} from '@react-navigation/native';
 import {Button, FlatList, RefreshControl, StyleSheet, View} from 'react-native';
 
 import AppText from '../components/AppText';
@@ -16,7 +17,6 @@ import {
   fetchPlans,
   fetchWeeksByPlan,
   getDBConnection,
-  setActivePlanId,
 } from '../common/databaseService';
 import type {BaseProps, Plan, Week} from '../common/types';
 
@@ -36,22 +36,25 @@ const Weeks: React.FC<BaseProps> = () => {
     setWeeks(await fetchWeeksByPlan(db, planId));
   }, []);
 
-  React.useEffect(() => {
-    (async function init() {
-      try {
-        const db = await getDBConnection();
-        const all = await fetchPlans(db);
-        setPlans(all);
-        const active = (await fetchActivePlanId(db)) ?? all[0]?.id ?? null;
-        setActivePlanIdState(active);
-        if (active != null) await refresh(active);
-      } catch (err) {
-        setInitError(err as Error);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [refresh]);
+  useFocusEffect(
+    React.useCallback(() => {
+      (async function init() {
+        setLoading(true);
+        try {
+          const db = await getDBConnection();
+          const all = await fetchPlans(db);
+          setPlans(all);
+          const active = (await fetchActivePlanId(db)) ?? all[0]?.id ?? null;
+          setActivePlanIdState(active);
+          if (active != null) await refresh(active);
+        } catch (err) {
+          setInitError(err as Error);
+        } finally {
+          setLoading(false);
+        }
+      })();
+    }, [refresh]),
+  );
 
   async function handleAddWeek() {
     if (activePlanId == null) return;
@@ -68,13 +71,6 @@ const Weeks: React.FC<BaseProps> = () => {
     }
   }
 
-  async function handleSelectPlan(planId: number) {
-    setActivePlanIdState(planId);
-    const db = await getDBConnection();
-    await setActivePlanId(db, planId);
-    await refresh(planId);
-  }
-
   async function handleRefresh() {
     if (activePlanId == null) return;
     setRefreshing(true);
@@ -87,19 +83,6 @@ const Weeks: React.FC<BaseProps> = () => {
 
   return (
     <View style={styles.container}>
-      {plans.length > 1 && (
-        <View style={styles.planTabs}>
-          {plans.map(p => (
-            <Button
-              key={p.id}
-              color={p.id === activePlanId ? colors.primary : '#aaa'}
-              title={p.name}
-              onPress={() => handleSelectPlan(p.id)}
-            />
-          ))}
-        </View>
-      )}
-
       {weeks.length === 0 ? (
         <View style={styles.empty}>
           <AppText>Noch keine Daten</AppText>
@@ -141,7 +124,6 @@ const Weeks: React.FC<BaseProps> = () => {
 
 const styles = StyleSheet.create({
   container: {flex: 1, padding: 16, backgroundColor: '#fff'},
-  planTabs: {flexDirection: 'row', justifyContent: 'space-around', marginBottom: 8},
   empty: {flex: 1, justifyContent: 'center', alignItems: 'center'},
   list: {flex: 1},
 });
