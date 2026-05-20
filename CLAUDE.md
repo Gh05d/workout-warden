@@ -135,6 +135,8 @@ The script is meant to run once on a developer machine, producing a `warden.db` 
 - **Circuit grouping** is purely visual: `Session.tsx`'s `groupByCircuit` helper folds consecutive `session_exercises` that share a `circuit_index` into a single grouped block with an "× N rounds" badge. The DB stores them as a flat ordered list.
 - **Quotes** come from `src/common/quotes.ts` (extracted from the deleted `variables.tsx`) — a flat list picked randomly on Home mount.
 - **Theme** lives in `src/common/theme.ts`. It is the single source of truth for the `colors` palette used by `NavigationContainer` and component styles.
+- **`Accordion` unmounts its children when collapsed** (`{open && <View>{children}</View>}`), not just visibility-hidden. State inside children is lost; stateful side effects (MediaPlayer instances, JS intervals) need explicit cleanup in their unmount path. System-level effects (`Vibration`) survive unmount since they're owned by the OS.
+- **Statistics chart** (`src/screens/Statistics.tsx`): `victory-native`'s `CartesianChart` crashes when any value in a `yKey`'d column is `null` — it can't compute a domain from nulls. `fetchExerciseStats` returns `max_weight: null` for bodyweight exercises (reps but no weight). Filter null y-values out of `data` before passing to the chart.
 
 ### Global TypeScript types
 
@@ -149,6 +151,11 @@ The script is meant to run once on a developer machine, producing a `warden.db` 
 
 Both patches must travel with the repo; CI / fresh clones will fail to assemble Android without them.
 
+### Native modules
+
+- **`TimerSound`** (`android/app/src/main/java/com/workoutwarden/TimerSoundModule.kt`) — minimal MediaPlayer bridge playing `res/raw/timer_done.mp3` on the `USAGE_ALARM` stream. JS wrapper at `src/common/timerSound.ts` exposes `TimerSound.play()` / `.stop()`. `play()` is idempotent: a second call while already playing is a no-op (guards against React 19 strict-mode double-invocation when called from inside a state updater). iOS = no-op fallback. Swap the alarm sound by replacing the mp3 file in-place — filename must stay `timer_done.mp3` (Android raw-resource names are lowercase + underscores only).
+- Native packages use the legacy `ReactPackage` interface registered manually in `MainApplication.kt`. Under RN 0.85's new arch they work via the interop layer but emit a `createNativeModules` deprecation warning — suppress with `@Suppress("DEPRECATION")` on the package class rather than migrating one-off modules to codegen.
+
 ## Visual language
 
 The in-app aesthetic is "Tactical Logbook": dark surfaces (`colors.ink`), orange accents (`colors.primary`), green for completion, square corners, 1px `colors.rule` hairlines, ALL-CAPS labels with `letterSpacing: 1.4–2`. No soft drop-shadows, no rounded-12 pastel cards. Use `TacticalButton` instead of native `<Button />`. Use tokens from `src/common/theme.ts` — don't introduce new hex literals in components.
@@ -158,6 +165,7 @@ Per-plan colour identity comes from `planColor(planId)` (palette in `src/common/
 ## Android quirks
 
 - **TextInput text gets clipped / pushed up** on Android. Always set `paddingVertical: 0`, `textAlignVertical: 'center'`, `includeFontPadding: false` on numeric inputs (see `Exercise.tsx` `numField` and `InlineTimer.tsx`).
+- **Vibration patterns**: the first array element is always a *wait* duration, not a buzz. `Vibration.vibrate([1000, 2000, 3000], true)` is silent for 1s before the first pulse. Start with `0` for an immediate buzz — `InlineTimer.tsx` / `CountdownTimer.tsx` use `[0, 600, 250, 600, 250, 1200]`.
 - **Accordion-style open/close** must use `react-native-reanimated` (`FadeIn` + `FadeOut` + `LinearTransition`). Plain `LayoutAnimation` is flaky under Fabric / RN 0.85 — silently no-ops on body height.
 - **Adaptive launcher icon** foregrounds must be full-bleed (no white padding). To regenerate from `assets/icon.png`, use the Python+PIL script pattern that writes to `mipmap-{mdpi…xxxhdpi}/ic_launcher{,_foreground,_round}.png` at 48/72/96/144/192 (legacy) and 108/162/216/324/432 (adaptive).
 
