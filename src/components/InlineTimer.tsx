@@ -23,6 +23,7 @@ import MaterialIcons from '@react-native-vector-icons/material-icons';
 import {useKeepAwake} from '@sayem314/react-native-keep-awake';
 
 import AppText from './AppText';
+import {TimerSound} from '../common/timerSound';
 import {colors} from '../common/theme';
 
 interface Props {
@@ -33,11 +34,10 @@ interface Props {
 type Status = 'idle' | 'running' | 'paused' | 'expired';
 
 const ONE_SECOND_MS = 1000;
-const VIBRATION_PATTERN = [
-  1 * ONE_SECOND_MS,
-  2 * ONE_SECOND_MS,
-  3 * ONE_SECOND_MS,
-];
+// Android's Vibrator pattern is [wait, on, wait, on, ...] — the first value
+// is always a leading delay. Start with 0 so the first buzz is immediate;
+// otherwise the user perceives the alarm as silent until the delay elapses.
+const VIBRATION_PATTERN = [0, 600, 250, 600, 250, 1200];
 
 function format(t: number): {mm: string; ss: string} {
   const safe = Math.max(0, Math.floor(t));
@@ -68,6 +68,7 @@ const InlineTimer: React.FC<Props> = ({duration, onExpand}) => {
           clearInterval(id);
           setStatus('expired');
           Vibration.vibrate(VIBRATION_PATTERN, true);
+          TimerSound.play();
           return 0;
         }
         return prev - 1;
@@ -100,10 +101,18 @@ const InlineTimer: React.FC<Props> = ({duration, onExpand}) => {
     return () => loop.stop();
   }, [status, blink]);
 
-  // stop vibration when the user leaves the expired state by any path
+  // stop vibration + sound when the user leaves the expired state by any path
   React.useEffect(() => {
-    if (status !== 'expired') Vibration.cancel();
+    if (status !== 'expired') {
+      Vibration.cancel();
+      TimerSound.stop();
+    }
   }, [status]);
+
+  // also stop sound when the component unmounts mid-alarm (e.g. user marks
+  // the exercise complete → Accordion collapses → InlineTimer unmounts).
+  // Vibration is left to its own Vibrator service lifecycle.
+  React.useEffect(() => () => TimerSound.stop(), []);
 
   // re-sync if the prescription itself changes (e.g. re-mount with a new set)
   React.useEffect(() => {
@@ -122,6 +131,7 @@ const InlineTimer: React.FC<Props> = ({duration, onExpand}) => {
   }
   function reset() {
     Vibration.cancel();
+    TimerSound.stop();
     setTimeLeft(target);
     setStatus('idle');
   }

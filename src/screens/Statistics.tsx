@@ -9,6 +9,7 @@ import ErrorComp from '../components/Error';
 import Toast from '../components/Toast';
 import Loading from '../components/Loading';
 import AppPicker from '../components/AppPicker';
+import AppText from '../components/AppText';
 
 import {colors} from '../common/theme';
 import {
@@ -23,7 +24,7 @@ interface ChartPoint {
   /** Unix timestamp in ms — used as the x-axis position so points are
    * spaced by actual elapsed time, not by sample index. */
   ts: number;
-  weight: number | null;
+  weight: number;
 }
 
 /** Format a timestamp for the x-axis. Switches between "DD.MM" (short
@@ -48,6 +49,7 @@ const Statistics: React.FC<BaseProps> = () => {
   const [error, setError] = React.useState<Error | null>(null);
   const [success, setSuccess] = React.useState('');
   const [data, setData] = React.useState<ChartPoint[]>([]);
+  const [selected, setSelected] = React.useState<string | null>(null);
 
   const font = useFont(roboto, 12);
   const {height} = useWindowDimensions();
@@ -68,9 +70,20 @@ const Statistics: React.FC<BaseProps> = () => {
   async function onSelect(name: string) {
     const found = exercises.find(e => e.name === name);
     if (!found) return;
+    setSelected(name);
     const db = await getDBConnection();
     const stats: StatsPoint[] = await fetchExerciseStats(db, found.slug);
-    setData(stats.map(p => ({ts: Date.parse(p.date), weight: p.max_weight})));
+    // Bodyweight exercises store reps but no weight → max_weight is null.
+    // Victory-native cannot compute a y-domain from null values, so drop
+    // those points. If nothing remains we render an empty state below.
+    const points: ChartPoint[] = [];
+    for (const p of stats) {
+      if (p.max_weight == null) continue;
+      const ts = Date.parse(p.date);
+      if (!Number.isFinite(ts)) continue;
+      points.push({ts, weight: p.max_weight});
+    }
+    setData(points);
   }
 
   if (loading) return <Loading text="Loading Statistics" />;
@@ -83,6 +96,14 @@ const Statistics: React.FC<BaseProps> = () => {
   return (
     <View style={styles.root}>
       <AppPicker onSelect={onSelect} items={exercises.map(e => e.name)} />
+
+      {selected != null && data.length === 0 && (
+        <View style={styles.empty}>
+          <AppText style={styles.emptyText}>
+            No weight data recorded for this exercise yet.
+          </AppText>
+        </View>
+      )}
 
       {data.length > 0 && (
         <View style={{height: height * 0.65}}>
@@ -132,6 +153,16 @@ const styles = StyleSheet.create({
     padding: 16,
     justifyContent: 'space-between',
     gap: 16,
+  },
+  empty: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: colors.muted,
+    fontSize: 12,
+    letterSpacing: 1.4,
+    textAlign: 'center',
   },
 });
 

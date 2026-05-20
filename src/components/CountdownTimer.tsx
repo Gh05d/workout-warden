@@ -12,6 +12,7 @@ import {useKeepAwake} from '@sayem314/react-native-keep-awake';
 
 import AppText from './AppText';
 import AppInput from './AppInput';
+import {TimerSound} from '../common/timerSound';
 import {colors} from '../common/theme';
 import {row} from '../common/styles';
 
@@ -20,13 +21,9 @@ interface Props {
   close: () => void;
 }
 
-const ONE_SECOND_IN_MS = 1000;
-
-const PATTERN = [
-  1 * ONE_SECOND_IN_MS,
-  2 * ONE_SECOND_IN_MS,
-  3 * ONE_SECOND_IN_MS,
-];
+// Android's Vibrator pattern is [wait, on, wait, on, ...] — the first value
+// is always a leading delay. Start with 0 so the first buzz is immediate.
+const PATTERN = [0, 600, 250, 600, 250, 1200];
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -53,6 +50,7 @@ const CountdownTimer: React.FC<Props> = ({duration, close}) => {
               clearInterval(interval);
               setIsBlinking(true);
               Vibration.vibrate(PATTERN, true);
+              TimerSound.play();
               return 0;
             } else {
               setMinutes(prevMinutes => prevMinutes - 1);
@@ -68,6 +66,7 @@ const CountdownTimer: React.FC<Props> = ({duration, close}) => {
     return () => {
       clearInterval(interval);
       Vibration.cancel();
+      TimerSound.stop();
     };
   }, [isActive, minutes, seconds, edit]);
 
@@ -100,6 +99,7 @@ const CountdownTimer: React.FC<Props> = ({duration, close}) => {
   const toggleTimer = () => {
     setIsActive(!isActive);
     Vibration.cancel();
+    TimerSound.stop();
   };
 
   function resetTimer() {
@@ -107,6 +107,7 @@ const CountdownTimer: React.FC<Props> = ({duration, close}) => {
     setMinutes(Math.floor(timeLeft / 60));
     setSeconds(Math.floor(timeLeft % 60));
     Vibration.cancel();
+    TimerSound.stop();
     setIsBlinking(false);
   }
 
