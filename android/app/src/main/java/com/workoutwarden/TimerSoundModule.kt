@@ -9,16 +9,17 @@ import com.facebook.react.bridge.ReactMethod
 class TimerSoundModule(reactContext: ReactApplicationContext) :
     ReactContextBaseJavaModule(reactContext) {
 
+  // Guarded by `this`: @ReactMethod calls run on the NativeModulesQueue
+  // thread, but the completion listener fires on the player's looper thread,
+  // so every access to `player` must be synchronized.
   private var player: MediaPlayer? = null
 
   override fun getName(): String = NAME
 
   @ReactMethod
+  @Synchronized
   fun play() {
     // Idempotent: if a player is already running, don't restart it.
-    // React state updaters can be invoked twice in strict/concurrent mode,
-    // and `setTimeLeft(prev => { ...; TimerSound.play(); ... })` would
-    // otherwise re-create the MediaPlayer mid-playback.
     if (player != null) return
     val mp = MediaPlayer.create(reactApplicationContext, R.raw.timer_done) ?: return
     mp.setAudioAttributes(
@@ -27,25 +28,24 @@ class TimerSoundModule(reactContext: ReactApplicationContext) :
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .build())
     mp.setOnCompletionListener {
+      synchronized(this) { if (player === it) player = null }
       it.release()
-      if (player === it) player = null
     }
     player = mp
     mp.start()
   }
 
   @ReactMethod
+  @Synchronized
   fun stop() {
-    stopInternal()
-  }
-
-  private fun stopInternal() {
     val mp = player ?: return
     player = null
     try {
       if (mp.isPlaying) mp.stop()
     } catch (_: IllegalStateException) {
       // MediaPlayer can throw if it's in an invalid state — release anyway.
+      // A double release() (racing the completion listener) is documented
+      // as safe.
     }
     mp.release()
   }

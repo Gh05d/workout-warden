@@ -11,19 +11,12 @@
 // not persisted — re-mount restores the seeded duration.
 
 import React from 'react';
-import {
-  Animated,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  Vibration,
-  View,
-} from 'react-native';
+import {Animated, Pressable, StyleSheet, TextInput, View} from 'react-native';
 import MaterialIcons from '@react-native-vector-icons/material-icons';
 import {useKeepAwake} from '@sayem314/react-native-keep-awake';
 
 import AppText from './AppText';
-import {TimerSound} from '../common/timerSound';
+import {startAlarm, stopAlarm} from '../common/timerSound';
 import {colors} from '../common/theme';
 
 interface Props {
@@ -34,10 +27,6 @@ interface Props {
 type Status = 'idle' | 'running' | 'paused' | 'expired';
 
 const ONE_SECOND_MS = 1000;
-// Android's Vibrator pattern is [wait, on, wait, on, ...] — the first value
-// is always a leading delay. Start with 0 so the first buzz is immediate;
-// otherwise the user perceives the alarm as silent until the delay elapses.
-const VIBRATION_PATTERN = [0, 600, 250, 600, 250, 1200];
 
 function format(t: number): {mm: string; ss: string} {
   const safe = Math.max(0, Math.floor(t));
@@ -67,8 +56,6 @@ const InlineTimer: React.FC<Props> = ({duration, onExpand}) => {
         if (prev <= 1) {
           clearInterval(id);
           setStatus('expired');
-          Vibration.vibrate(VIBRATION_PATTERN, true);
-          TimerSound.play();
           return 0;
         }
         return prev - 1;
@@ -101,18 +88,16 @@ const InlineTimer: React.FC<Props> = ({duration, onExpand}) => {
     return () => loop.stop();
   }, [status, blink]);
 
-  // stop vibration + sound when the user leaves the expired state by any path
+  // The alarm is driven by the status state machine, not from inside the
+  // tick updater (side effects in updaters break under double-invocation).
+  // Entering 'expired' starts vibration + sound; the cleanup stops both when
+  // the user leaves the state by any path — including unmount mid-alarm
+  // (e.g. user marks the exercise complete → Accordion collapses).
   React.useEffect(() => {
-    if (status !== 'expired') {
-      Vibration.cancel();
-      TimerSound.stop();
-    }
+    if (status !== 'expired') return;
+    startAlarm();
+    return () => stopAlarm();
   }, [status]);
-
-  // also stop sound when the component unmounts mid-alarm (e.g. user marks
-  // the exercise complete → Accordion collapses → InlineTimer unmounts).
-  // Vibration is left to its own Vibrator service lifecycle.
-  React.useEffect(() => () => TimerSound.stop(), []);
 
   // re-sync if the prescription itself changes (e.g. re-mount with a new set)
   React.useEffect(() => {
@@ -130,8 +115,7 @@ const InlineTimer: React.FC<Props> = ({duration, onExpand}) => {
     setStatus('paused');
   }
   function reset() {
-    Vibration.cancel();
-    TimerSound.stop();
+    // leaving 'expired' runs the alarm effect's cleanup → stopAlarm()
     setTimeLeft(target);
     setStatus('idle');
   }

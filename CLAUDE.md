@@ -19,6 +19,7 @@ yarn test                        # Jest (smoke test + seed/slugify unit tests)
 yarn test -- -t "renders"        # Run a single test by name
 
 yarn build-prod:android          # cd android && ./gradlew assembleRelease
+cd android && ./gradlew :app:compileDebugKotlin   # fast (~40s incremental) compile check for native-module Kotlin changes, no APK build
 yarn update-version:android      # Sync android/app/build.gradle versionName from package.json, bump versionCode
 ./version-update.sh patch|minor|major   # Full release: npm version → sync gradle → assembleRelease → commit → push
 
@@ -136,7 +137,7 @@ The script is meant to run once on a developer machine, producing a `warden.db` 
 - **Quotes** come from `src/common/quotes.ts` (extracted from the deleted `variables.tsx`) — a flat list picked randomly on Home mount.
 - **Theme** lives in `src/common/theme.ts`. It is the single source of truth for the `colors` palette used by `NavigationContainer` and component styles.
 - **`Accordion` unmounts its children when collapsed** (`{open && <View>{children}</View>}`), not just visibility-hidden. State inside children is lost; stateful side effects (MediaPlayer instances, JS intervals) need explicit cleanup in their unmount path. System-level effects (`Vibration`) survive unmount since they're owned by the OS.
-- **Statistics chart** (`src/screens/Statistics.tsx`): `victory-native`'s `CartesianChart` crashes when any value in a `yKey`'d column is `null` — it can't compute a domain from nulls. `fetchExerciseStats` returns `max_weight: null` for bodyweight exercises (reps but no weight). Filter null y-values out of `data` before passing to the chart.
+- **Statistics chart** (`src/screens/Statistics.tsx`): `victory-native`'s `CartesianChart` crashes when any value in a `yKey`'d column is `null` — it can't compute a domain from nulls; only feed it non-null points. `fetchExerciseStats` returns `max_weight: null` for bodyweight exercises (reps but no weight); the screen charts the `max_weight` series when present and falls back to the `max_reps` series otherwise (`metric` state switches the y-axis suffix kg/reps).
 
 ### Global TypeScript types
 
@@ -153,7 +154,7 @@ Both patches must travel with the repo; CI / fresh clones will fail to assemble 
 
 ### Native modules
 
-- **`TimerSound`** (`android/app/src/main/java/com/workoutwarden/TimerSoundModule.kt`) — minimal MediaPlayer bridge playing `res/raw/timer_done.mp3` on the `USAGE_ALARM` stream. JS wrapper at `src/common/timerSound.ts` exposes `TimerSound.play()` / `.stop()`. `play()` is idempotent: a second call while already playing is a no-op (guards against React 19 strict-mode double-invocation when called from inside a state updater). iOS = no-op fallback. Swap the alarm sound by replacing the mp3 file in-place — filename must stay `timer_done.mp3` (Android raw-resource names are lowercase + underscores only).
+- **`TimerSound`** (`android/app/src/main/java/com/workoutwarden/TimerSoundModule.kt`) — minimal MediaPlayer bridge playing `res/raw/timer_done.mp3` on the `USAGE_ALARM` stream. `play()` is idempotent and the module is `@Synchronized` (the completion listener fires on a different thread than @ReactMethod calls). JS side: don't call the bridge directly from components — use `startAlarm()` / `stopAlarm()` from `src/common/timerSound.ts`, which pair the sound with the repeating vibration pattern. Components drive the alarm from a status-state effect (`if (expired) { startAlarm(); return () => stopAlarm(); }`), never from inside a state updater — the effect cleanup is what guarantees vibration+sound stop on unmount (`Vibration.vibrate(pattern, true)` repeats forever otherwise). iOS = no-op fallback. Swap the alarm sound by replacing the mp3 file in-place — filename must stay `timer_done.mp3` (Android raw-resource names are lowercase + underscores only).
 - Native packages use the legacy `ReactPackage` interface registered manually in `MainApplication.kt`. Under RN 0.85's new arch they work via the interop layer but emit a `createNativeModules` deprecation warning — suppress with `@Suppress("DEPRECATION")` on the package class rather than migrating one-off modules to codegen.
 
 ## Visual language
@@ -176,6 +177,8 @@ Per-plan colour identity comes from `planColor(planId)` (palette in `src/common/
 ## TypeScript errors
 
 Treat TS errors on imports from third-party libraries as **real contracts**, not pre-existing noise. TS1192 "no default export" on `@dr.pogodin/react-native-fs` was a real runtime bug (`undefined.copyFile`), not a config quirk. Check the library's actual export shape before dismissing as noise.
+
+That said, `tsc --noEmit` is **not clean** on this repo. Known pre-existing noise: victory-native `CartesianChart` generics in `Statistics.tsx` (data/xKey/yKeys/points errors — the chart works at runtime), `Routes.tsx` screen-component typings, everything in the dead `useFetchData.tsx`, and all of `__tests__/` (no jest types in tsconfig). To check whether a change introduces NEW errors, diff the error list against HEAD: `git worktree add --detach /tmp/ww-head HEAD`, symlink `node_modules` into it, run tsc in both, compare. Don't run bare `git stash` to get a baseline — and remember to run tsc from the repo root, not the worktree, for the "after" list.
 
 ## Code style
 

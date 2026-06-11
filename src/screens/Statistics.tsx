@@ -24,8 +24,11 @@ interface ChartPoint {
   /** Unix timestamp in ms — used as the x-axis position so points are
    * spaced by actual elapsed time, not by sample index. */
   ts: number;
-  weight: number;
+  /** Max weight (kg) or, for bodyweight exercises, max reps per day. */
+  value: number;
 }
+
+type Metric = 'weight' | 'reps';
 
 /** Format a timestamp for the x-axis. Switches between "DD.MM" (short
  * ranges, < 4 months) and "MM/YY" (long ranges) based on the data span. */
@@ -49,6 +52,7 @@ const Statistics: React.FC<BaseProps> = () => {
   const [error, setError] = React.useState<Error | null>(null);
   const [success, setSuccess] = React.useState('');
   const [data, setData] = React.useState<ChartPoint[]>([]);
+  const [metric, setMetric] = React.useState<Metric>('weight');
   const [selected, setSelected] = React.useState<string | null>(null);
 
   const font = useFont(roboto, 12);
@@ -73,17 +77,26 @@ const Statistics: React.FC<BaseProps> = () => {
     setSelected(name);
     const db = await getDBConnection();
     const stats: StatsPoint[] = await fetchExerciseStats(db, found.slug);
-    // Bodyweight exercises store reps but no weight → max_weight is null.
-    // Victory-native cannot compute a y-domain from null values, so drop
-    // those points. If nothing remains we render an empty state below.
-    const points: ChartPoint[] = [];
+    // Victory-native cannot compute a y-domain from null values, so each
+    // series only keeps non-null points. Weighted exercises chart max
+    // weight; bodyweight exercises (reps but no weight → max_weight is
+    // null) fall back to the max-reps series instead of rendering as
+    // "no data". If both are empty we render an empty state below.
+    const weightPoints: ChartPoint[] = [];
+    const repsPoints: ChartPoint[] = [];
     for (const p of stats) {
-      if (p.max_weight == null) continue;
       const ts = Date.parse(p.date);
       if (!Number.isFinite(ts)) continue;
-      points.push({ts, weight: p.max_weight});
+      if (p.max_weight != null) weightPoints.push({ts, value: p.max_weight});
+      if (p.max_reps != null) repsPoints.push({ts, value: p.max_reps});
     }
-    setData(points);
+    if (weightPoints.length > 0) {
+      setMetric('weight');
+      setData(weightPoints);
+    } else {
+      setMetric('reps');
+      setData(repsPoints);
+    }
   }
 
   if (loading) return <Loading text="Loading Statistics" />;
@@ -100,7 +113,7 @@ const Statistics: React.FC<BaseProps> = () => {
       {selected != null && data.length === 0 && (
         <View style={styles.empty}>
           <AppText style={styles.emptyText}>
-            No weight data recorded for this exercise yet.
+            No data recorded for this exercise yet.
           </AppText>
         </View>
       )}
@@ -112,17 +125,17 @@ const Statistics: React.FC<BaseProps> = () => {
             axisOptions={{
               font,
               formatXLabel,
-              formatYLabel: v => v + ' kg',
+              formatYLabel: v => v + (metric === 'weight' ? ' kg' : ' reps'),
             }}
             domain={{y: [0]}}
             data={data}
             xKey="ts"
-            yKeys={['weight']}>
+            yKeys={['value']}>
             {({points, chartBounds}) => (
               <>
                 <Bar
                   chartBounds={chartBounds}
-                  points={points.weight}
+                  points={points.value}
                   roundedCorners={{topLeft: 5, topRight: 5}}>
                   <LinearGradient
                     start={vec(0, 0)}
@@ -131,7 +144,7 @@ const Statistics: React.FC<BaseProps> = () => {
                   />
                 </Bar>
                 <Line
-                  points={points.weight}
+                  points={points.value}
                   color="#1f2937"
                   strokeWidth={2}
                   curveType="monotoneX"

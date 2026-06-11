@@ -1,18 +1,11 @@
 import React, {useState, useEffect} from 'react';
-import {
-  View,
-  Button,
-  Vibration,
-  StyleSheet,
-  Pressable,
-  Animated,
-} from 'react-native';
+import {View, Button, StyleSheet, Pressable, Animated} from 'react-native';
 import MaterialIcons from '@react-native-vector-icons/material-icons';
 import {useKeepAwake} from '@sayem314/react-native-keep-awake';
 
 import AppText from './AppText';
 import AppInput from './AppInput';
-import {TimerSound} from '../common/timerSound';
+import {startAlarm, stopAlarm} from '../common/timerSound';
 import {colors} from '../common/theme';
 import {row} from '../common/styles';
 
@@ -21,54 +14,48 @@ interface Props {
   close: () => void;
 }
 
-// Android's Vibrator pattern is [wait, on, wait, on, ...] — the first value
-// is always a leading delay. Start with 0 so the first buzz is immediate.
-const PATTERN = [0, 600, 250, 600, 250, 1200];
-
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const CountdownTimer: React.FC<Props> = ({duration, close}) => {
-  const [timeLeft, setTimeLeft] = useState(duration);
+  // single source of truth for the countdown — minutes/seconds are derived,
+  // so the tick interval survives every render instead of being torn down
+  // and recreated per second (which made the timer drift slow).
+  const [remaining, setRemaining] = useState(duration);
   const [isActive, setIsActive] = useState(false);
   const [edit, setEdit] = useState(false);
-  const [minutes, setMinutes] = React.useState(Math.floor(timeLeft / 60));
-  const [seconds, setSeconds] = React.useState(Math.floor(timeLeft % 60));
   const [isBlinking, setIsBlinking] = useState(false);
 
   const blinkAnim = React.useRef(new Animated.Value(1)).current;
 
   useKeepAwake();
 
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
+    if (!isActive || edit) return;
+    const interval = setInterval(() => {
+      setRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setIsBlinking(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isActive, edit]);
 
-    if (isActive && !edit) {
-      interval = setInterval(() => {
-        setSeconds(prevSeconds => {
-          if (prevSeconds === 0) {
-            if (minutes === 0) {
-              clearInterval(interval);
-              setIsBlinking(true);
-              Vibration.vibrate(PATTERN, true);
-              TimerSound.play();
-              return 0;
-            } else {
-              setMinutes(prevMinutes => prevMinutes - 1);
-              return 59;
-            }
-          } else {
-            return prevSeconds - 1;
-          }
-        });
-      }, 1000);
-    }
-
-    return () => {
-      clearInterval(interval);
-      Vibration.cancel();
-      TimerSound.stop();
-    };
-  }, [isActive, minutes, seconds, edit]);
+  // The alarm is driven by the expired/blinking state, not from inside the
+  // tick updater (side effects in updaters break under double-invocation).
+  // The cleanup stops vibration + sound on every exit path, including
+  // unmounting the modal mid-alarm.
+  useEffect(() => {
+    if (!isBlinking) return;
+    startAlarm();
+    return () => stopAlarm();
+  }, [isBlinking]);
 
   useEffect(() => {
     let isMounted = true;
@@ -97,18 +84,15 @@ const CountdownTimer: React.FC<Props> = ({duration, close}) => {
   }, [isBlinking, blinkAnim]);
 
   const toggleTimer = () => {
+    setIsBlinking(false);
+    if (!isActive && remaining === 0) return;
     setIsActive(!isActive);
-    Vibration.cancel();
-    TimerSound.stop();
   };
 
   function resetTimer() {
     setIsActive(false);
-    setMinutes(Math.floor(timeLeft / 60));
-    setSeconds(Math.floor(timeLeft % 60));
-    Vibration.cancel();
-    TimerSound.stop();
     setIsBlinking(false);
+    setRemaining(duration);
   }
 
   return (
@@ -123,13 +107,22 @@ const CountdownTimer: React.FC<Props> = ({duration, close}) => {
         {edit ? (
           <View style={styles.edit}>
             <AppInput
-              setValue={value => setMinutes(+value)}
+              setValue={value =>
+                setRemaining(
+                  Math.max(0, parseInt(value, 10) || 0) * 60 + seconds,
+                )
+              }
               value={minutes.toString()}
               keyboardType="numeric"
             />
             <AppText>:</AppText>
             <AppInput
-              setValue={value => setSeconds(+value)}
+              setValue={value =>
+                setRemaining(
+                  minutes * 60 +
+                    Math.min(59, Math.max(0, parseInt(value, 10) || 0)),
+                )
+              }
               value={seconds.toString()}
               keyboardType="numeric"
             />
@@ -152,21 +145,14 @@ const CountdownTimer: React.FC<Props> = ({duration, close}) => {
         <Button
           color={colors.primary}
           title={edit ? 'Done' : 'Edit Time'}
-          onPress={() => setEdit(state => !state)}
+          onPress={() => {
+            setIsBlinking(false);
+            setEdit(state => !state);
+          }}
         />
 
         <Button color={colors.primary} title="Reset" onPress={resetTimer} />
       </View>
-
-      {timeLeft === 0 && (
-        <View style={{width: '100%'}}>
-          <Button
-            color={colors.primary}
-            title="Reset"
-            onPress={() => setTimeLeft(duration)}
-          />
-        </View>
-      )}
     </View>
   );
 };
