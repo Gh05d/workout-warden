@@ -74,20 +74,25 @@ export const SURF2: PlanSeed = {
       exercises: [
         {exercise_slug: 'backward-walking',          order_index: 1, prescribed_sets: 1, prescribed_seconds: 300, hint: 'Walk backwards for 5 Mins'},
         {exercise_slug: 'reverse-step-up',           order_index: 2, prescribed_sets: 3, prescribed_reps: 6, per_side: true},
-        // Start conservative — Nordic DOMS would eat into surfing/altinha. Add a rep when 2x3 feels easy.
-        {exercise_slug: 'nordic',                    order_index: 3, prescribed_sets: 2, prescribed_reps: 3, hint: 'Start here — only add reps once this leaves no soreness'},
+        // Hamstrings — replaces the Nordic (needs an ankle anchor we don't have). Kicking sport
+        // carries real hamstring-strain risk, and this doubles as the hip-hinge pattern.
+        {exercise_slug: 'single-leg-rdl',            order_index: 3, prescribed_sets: 3, prescribed_reps: 8, per_side: true, hint: 'Hips straight back, back flat, hips level — no rounding or twisting'},
+        // Quads/rectus femoris at length — rectus femoris is a hip flexor, and hip-flexor tightness
+        // is a moderate-evidence LBP risk factor. NOT a Nordic substitute — the opposite muscle.
+        {exercise_slug: 'reverse-nordic',            order_index: 4, prescribed_sets: 2, prescribed_reps: 6, hint: 'Lean back slowly — ribs down, do NOT arch the lower back'},
 
         // Calf pair, 3 rounds — sand under-loads the gastrocnemius/soleus
-        {exercise_slug: 'straight-leg-calf-raise',   order_index: 4, prescribed_sets: 1, prescribed_reps: 20, circuit_index: 1, circuit_rounds: 3},
-        {exercise_slug: 'bent-leg-calf-raise',       order_index: 5, prescribed_sets: 1, prescribed_reps: 15, circuit_index: 1, circuit_rounds: 3},
+        {exercise_slug: 'straight-leg-calf-raise',   order_index: 5, prescribed_sets: 1, prescribed_reps: 20, circuit_index: 1, circuit_rounds: 3},
+        {exercise_slug: 'bent-leg-calf-raise',       order_index: 6, prescribed_sets: 1, prescribed_reps: 15, circuit_index: 1, circuit_rounds: 3},
 
-        {exercise_slug: 'tibialis-raise',            order_index: 6, prescribed_sets: 2, prescribed_reps: 25, as_maximum: true},
+        // Single set on purpose — sand running already raises tibialis activation ~16.5%
+        {exercise_slug: 'tibialis-raise',            order_index: 7, prescribed_sets: 1, prescribed_reps: 25, as_maximum: true},
 
         // Core anchor, 2 rounds
-        {exercise_slug: 'mcgill-curlup',             order_index: 7, prescribed_sets: 1, prescribed_reps: 8,                  circuit_index: 2, circuit_rounds: 2},
-        {exercise_slug: 'ql-extension',              order_index: 8, prescribed_sets: 1, prescribed_reps: 12, per_side: true, circuit_index: 2, circuit_rounds: 2},
+        {exercise_slug: 'mcgill-curlup',             order_index: 8, prescribed_sets: 1, prescribed_reps: 8,                  circuit_index: 2, circuit_rounds: 2},
+        {exercise_slug: 'ql-extension',              order_index: 9, prescribed_sets: 1, prescribed_reps: 12, per_side: true, circuit_index: 2, circuit_rounds: 2},
 
-        {exercise_slug: 'hip-flexors',               order_index: 9, prescribed_sets: 1, prescribed_seconds: 60, per_side: true, hint: '1 Min Per Side'},
+        {exercise_slug: 'hip-flexors',               order_index: 10, prescribed_sets: 1, prescribed_seconds: 60, per_side: true, hint: '1 Min Per Side'},
       ],
     },
     {

@@ -337,6 +337,14 @@ export const EXERCISES: ExerciseSeed[] = [
     description:
       'Anchor a band at chest height, stand side-on, arms extended. Rotate through the torso and hips — not just the arms — pulling the band across the body, then return under control. Rotational power for driving turns.',
   },
+  // Hamstring — anchor-free Nordic substitute; eccentric hamstring work is the best-evidenced
+  // prevention for the strain risk that kicking sport (altinha) carries
+  {
+    slug: 'single-leg-rdl',
+    name: 'Single-Leg RDL',
+    description:
+      'Stand on one leg, knee softly bent. Hinge at the hip — push the hips straight back and let the free leg extend behind you as a counterweight — until you feel a strong stretch in the standing hamstring, then drive the hip forward to stand tall. Keep the back flat and the hips level; do not round or twist. Loop a band under the standing foot to add load.',
+  },
   // Shoulder prevention — stretch internal rotators against paddle IR dominance (see surf-conditioning.md)
   {
     slug: 'cross-body-shoulder-stretch',
