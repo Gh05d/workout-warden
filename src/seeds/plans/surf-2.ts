@@ -21,7 +21,8 @@ export const SURF2: PlanSeed = {
       exercises: [
         {exercise_slug: 'backward-walking',          order_index: 1, prescribed_sets: 1, prescribed_seconds: 300, hint: 'Walk backwards for 5 Mins'},
         {exercise_slug: 'squat-jump',                order_index: 2, prescribed_sets: 4, prescribed_reps: 5,  hint: 'Firm ground — max height, soft landing, full reset between reps'},
-        {exercise_slug: 'pogo-hops',                 order_index: 3, prescribed_sets: 3, prescribed_reps: 20},
+        // Volume kept low on purpose: 6 h/week of sand jumping already loads calf/Achilles
+        {exercise_slug: 'pogo-hops',                 order_index: 3, prescribed_sets: 2, prescribed_reps: 15},
         {exercise_slug: 'atg-split-squat',           order_index: 4, prescribed_sets: 3, prescribed_reps: 6, per_side: true, hint: 'Neutral pelvis — do NOT arch the lower back'},
         {exercise_slug: 'glute-bridge-single-leg',   order_index: 5, prescribed_sets: 3, prescribed_reps: 10, per_side: true},
 
@@ -29,7 +30,9 @@ export const SURF2: PlanSeed = {
         {exercise_slug: 'bird-dog',                  order_index: 6, prescribed_sets: 1, prescribed_reps: 8, per_side: true,   circuit_index: 1, circuit_rounds: 2},
         {exercise_slug: 'side-plank',                order_index: 7, prescribed_sets: 1, prescribed_seconds: 30, per_side: true, circuit_index: 1, circuit_rounds: 2},
 
-        {exercise_slug: 'couch-stretch',             order_index: 8, prescribed_sets: 1, prescribed_seconds: 60, per_side: true, hint: '1 Min Per Side'},
+        // Hamstring length + lumbar ROM — spread Mon/Wed/Fri, not bunched on the mobility day
+        {exercise_slug: 'elephant-walk',             order_index: 8, prescribed_sets: 2, prescribed_reps: 20, per_side: true},
+        {exercise_slug: 'couch-stretch',             order_index: 9, prescribed_sets: 1, prescribed_seconds: 60, per_side: true, hint: '1 Min Per Side'},
       ],
     },
     {
@@ -38,14 +41,16 @@ export const SURF2: PlanSeed = {
       exercises: [
         {exercise_slug: 'band-pull-apart',           order_index: 1, prescribed_sets: 2, prescribed_reps: 20},
         {exercise_slug: 'atg-pushup',                order_index: 2, prescribed_sets: 4, prescribed_reps: 8, hint: 'Pop-up strength — control the descent'},
-        {exercise_slug: 'band-overhead-press',       order_index: 3, prescribed_sets: 3, prescribed_reps: 10},
+        // Second pull slot — one row per week is thin against 7.5-9 h/week of paddling
+        {exercise_slug: 'atg-row',                   order_index: 3, prescribed_sets: 3, prescribed_reps: 12},
+        {exercise_slug: 'band-overhead-press',       order_index: 4, prescribed_sets: 3, prescribed_reps: 10},
 
         // Shoulder-prevention circuit, 3 rounds — stretch internal rotators, strengthen external
-        {exercise_slug: 'external-rotation',         order_index: 4, prescribed_sets: 1, prescribed_reps: 15, per_side: true, circuit_index: 1, circuit_rounds: 3},
-        {exercise_slug: 'pigeon-pushup',             order_index: 5, prescribed_sets: 1, prescribed_reps: 10,                  circuit_index: 1, circuit_rounds: 3},
-        {exercise_slug: 'cross-body-shoulder-stretch', order_index: 6, prescribed_sets: 1, prescribed_seconds: 30, per_side: true, circuit_index: 1, circuit_rounds: 3},
+        {exercise_slug: 'external-rotation',         order_index: 5, prescribed_sets: 1, prescribed_reps: 15, per_side: true, circuit_index: 1, circuit_rounds: 3},
+        {exercise_slug: 'pigeon-pushup',             order_index: 6, prescribed_sets: 1, prescribed_reps: 10,                  circuit_index: 1, circuit_rounds: 3},
+        {exercise_slug: 'cross-body-shoulder-stretch', order_index: 7, prescribed_sets: 1, prescribed_seconds: 30, per_side: true, circuit_index: 1, circuit_rounds: 3},
 
-        {exercise_slug: 'pallof-press',              order_index: 7, prescribed_sets: 3, prescribed_reps: 10, per_side: true},
+        {exercise_slug: 'pallof-press',              order_index: 8, prescribed_sets: 3, prescribed_reps: 10, per_side: true},
       ],
     },
     {
@@ -69,7 +74,8 @@ export const SURF2: PlanSeed = {
       exercises: [
         {exercise_slug: 'backward-walking',          order_index: 1, prescribed_sets: 1, prescribed_seconds: 300, hint: 'Walk backwards for 5 Mins'},
         {exercise_slug: 'reverse-step-up',           order_index: 2, prescribed_sets: 3, prescribed_reps: 6, per_side: true},
-        {exercise_slug: 'nordic',                    order_index: 3, prescribed_sets: 3, prescribed_reps: 5},
+        // Start conservative — Nordic DOMS would eat into surfing/altinha. Add a rep when 2x3 feels easy.
+        {exercise_slug: 'nordic',                    order_index: 3, prescribed_sets: 2, prescribed_reps: 3, hint: 'Start here — only add reps once this leaves no soreness'},
 
         // Calf pair, 3 rounds — sand under-loads the gastrocnemius/soleus
         {exercise_slug: 'straight-leg-calf-raise',   order_index: 4, prescribed_sets: 1, prescribed_reps: 20, circuit_index: 1, circuit_rounds: 3},
@@ -97,6 +103,7 @@ export const SURF2: PlanSeed = {
         // Finisher circuit, 2 rounds
         {exercise_slug: 'side-plank',                order_index: 6, prescribed_sets: 1, prescribed_seconds: 30, per_side: true, circuit_index: 1, circuit_rounds: 2},
         {exercise_slug: 'wall-pullover',             order_index: 7, prescribed_sets: 1, prescribed_reps: 15,                    circuit_index: 1, circuit_rounds: 2},
+        {exercise_slug: 'elephant-walk',             order_index: 8, prescribed_sets: 1, prescribed_reps: 20, per_side: true,    circuit_index: 1, circuit_rounds: 2},
       ],
     },
   ],
