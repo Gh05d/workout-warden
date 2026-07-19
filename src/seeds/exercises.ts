@@ -277,4 +277,71 @@ export const EXERCISES: ExerciseSeed[] = [
     description:
       'Variant of the couch stretch — kneel with the rear shin pressed against a couch or wall, then lean back to lounge against the seat. Hip flexor + quad opener with passive load. Hold 1–2 min per side.',
   },
+
+  // ===== Surf 2.0 additions (see docs/research/) =====
+  // Power / reactive — turn power (Secomb 2015) + sand-neglected SSC (see altinha-belastungsprofil.md)
+  {
+    slug: 'squat-jump',
+    name: 'Squat Jump',
+    description:
+      'On firm ground: dip into a quarter squat and explode straight up for maximum height, landing soft with knees bent. Reset fully between reps — quality over fatigue. Lower-body power drives higher-scoring surf turns; do it on a hard surface since sand blunts the reactive stimulus.',
+  },
+  {
+    slug: 'pogo-hops',
+    name: 'Pogo Hops',
+    description:
+      'Stiff-ankle bounces in place: stay tall, keep the knees nearly straight, and rebound off the balls of the feet with minimal ground contact. Trains the calf/Achilles stretch-shortening cycle that sand under-loads. Do them on a firm surface.',
+  },
+  // Posterior chain / hip — glutes named in low-back prevention (see ruecken-huefte.md)
+  {
+    slug: 'glute-bridge-single-leg',
+    name: 'Single-Leg Glute Bridge',
+    description:
+      'Lie on your back, one foot flat, the other leg extended. Drive through the planted heel to lift the hips until knee-hip-shoulder line up, squeezing the glute at the top. Keep the pelvis level — no dropping to the free side. Builds the glutes that protect the lower back.',
+  },
+  // McGill Big 3 — high trunk activity at low spinal compression (see ruecken-huefte.md)
+  {
+    slug: 'bird-dog',
+    name: 'Bird-Dog',
+    description:
+      'On hands and knees, brace the abs and extend the opposite arm and leg to a straight line without letting the lower back sag or the hips rotate. Hold briefly, return under control, alternate sides. Neutral-spine anti-rotation endurance for the low back.',
+  },
+  {
+    slug: 'side-plank',
+    name: 'Side Plank',
+    description:
+      'Lie on your side, forearm under the shoulder, and lift the hips into a straight line from head to feet (drop to the bottom knee to regress). Brace the whole trunk and breathe. Loads the lateral chain and QL with minimal spinal compression.',
+  },
+  {
+    slug: 'mcgill-curlup',
+    name: 'McGill Curl-Up',
+    description:
+      'Lie on your back, one knee bent, hands under the lumbar curve to keep it neutral. Lift only the head and shoulders a few centimetres — no spinal flexion, chin tucked. Trains the abdominal brace without rounding the spine.',
+  },
+  {
+    slug: 'dead-bug',
+    name: 'Dead Bug',
+    description:
+      'On your back, arms up and knees over hips. Press the lower back gently into the floor, then lower the opposite arm and leg toward the ground without letting the ribs flare or the back arch. Anti-extension core control for a stable lumbar spine.',
+  },
+  // Rotation / anti-rotation — board control (kinetic chain, see surf-conditioning.md)
+  {
+    slug: 'pallof-press',
+    name: 'Pallof Press',
+    description:
+      'Anchor a band at chest height and stand side-on. Hold the handle at the sternum and press it straight out, resisting the pull that wants to twist you. The point is to NOT rotate — anti-rotation strength that transfers to board control.',
+  },
+  {
+    slug: 'band-rotation',
+    name: 'Band Rotation',
+    description:
+      'Anchor a band at chest height, stand side-on, arms extended. Rotate through the torso and hips — not just the arms — pulling the band across the body, then return under control. Rotational power for driving turns.',
+  },
+  // Shoulder prevention — stretch internal rotators against paddle IR dominance (see surf-conditioning.md)
+  {
+    slug: 'cross-body-shoulder-stretch',
+    name: 'Cross-Body Shoulder Stretch',
+    description:
+      'Bring one arm straight across the chest and use the other to gently draw it closer, feeling the stretch in the back of the shoulder. Hold 30 s per side. Lengthens the internal rotators and posterior capsule that paddling chronically tightens.',
+  },
 ];
