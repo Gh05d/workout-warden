@@ -22,13 +22,13 @@ export const SURF2: PlanSeed = {
         {exercise_slug: 'backward-walking',          order_index: 1, prescribed_sets: 1, prescribed_seconds: 300, hint: 'Walk backwards for 5 Mins'},
         {exercise_slug: 'squat-jump',                order_index: 2, prescribed_sets: 4, prescribed_reps: 5,  hint: 'Firm ground — max height, soft landing, full reset between reps'},
         // Volume kept low on purpose: 6 h/week of sand jumping already loads calf/Achilles
-        {exercise_slug: 'pogo-hops',                 order_index: 3, prescribed_sets: 2, prescribed_reps: 15},
-        {exercise_slug: 'atg-split-squat',           order_index: 4, prescribed_sets: 3, prescribed_reps: 6, per_side: true, hint: 'Neutral pelvis — do NOT arch the lower back'},
-        {exercise_slug: 'glute-bridge-single-leg',   order_index: 5, prescribed_sets: 3, prescribed_reps: 10, per_side: true},
+        {exercise_slug: 'pogo-hops',                 order_index: 3, prescribed_sets: 2, prescribed_reps: 15, hint: 'Stay tall, knees almost straight. Bounce off the balls of the feet with minimal ground contact — ankles do the work, not the knees.'},
+        {exercise_slug: 'atg-split-squat',           order_index: 4, prescribed_sets: 3, prescribed_reps: 6, per_side: true, hint: 'Long stance, rear leg straight, front foot flat. Knee travels past the toes. Neutral pelvis — do NOT arch the lower back.'},
+        {exercise_slug: 'glute-bridge-single-leg',   order_index: 5, prescribed_sets: 3, prescribed_reps: 10, per_side: true, hint: 'Drive through the planted heel until knee, hip and shoulder line up. Keep the pelvis level — do not let the free hip drop.'},
 
         // Core anchor, 2 rounds
-        {exercise_slug: 'bird-dog',                  order_index: 6, prescribed_sets: 1, prescribed_reps: 8, per_side: true,   circuit_index: 1, circuit_rounds: 2},
-        {exercise_slug: 'side-plank',                order_index: 7, prescribed_sets: 1, prescribed_seconds: 30, per_side: true, circuit_index: 1, circuit_rounds: 2},
+        {exercise_slug: 'bird-dog',                  order_index: 6, prescribed_sets: 1, prescribed_reps: 8, per_side: true,   circuit_index: 1, circuit_rounds: 2, hint: 'Hands and knees. Extend opposite arm and leg to a straight line, slowly. Do not let the lower back sag or the hips rotate.'},
+        {exercise_slug: 'side-plank',                order_index: 7, prescribed_sets: 1, prescribed_seconds: 30, per_side: true, circuit_index: 1, circuit_rounds: 2, hint: 'Forearm under the shoulder, straight line head to feet, hips lifted. Drop to the bottom knee if the hips sag. Keep breathing.'},
 
         // Hamstring length + lumbar ROM — spread Mon/Wed/Fri, not bunched on the mobility day
         {exercise_slug: 'elephant-walk',             order_index: 8, prescribed_sets: 2, prescribed_reps: 20, per_side: true},
@@ -48,17 +48,17 @@ export const SURF2: PlanSeed = {
         // Shoulder-prevention circuit, 3 rounds — stretch internal rotators, strengthen external
         {exercise_slug: 'external-rotation',         order_index: 5, prescribed_sets: 1, prescribed_reps: 15, per_side: true, circuit_index: 1, circuit_rounds: 3},
         {exercise_slug: 'pigeon-pushup',             order_index: 6, prescribed_sets: 1, prescribed_reps: 10,                  circuit_index: 1, circuit_rounds: 3},
-        {exercise_slug: 'cross-body-shoulder-stretch', order_index: 7, prescribed_sets: 1, prescribed_seconds: 30, per_side: true, circuit_index: 1, circuit_rounds: 3},
+        {exercise_slug: 'cross-body-shoulder-stretch', order_index: 7, prescribed_sets: 1, prescribed_seconds: 30, per_side: true, circuit_index: 1, circuit_rounds: 3, hint: 'Arm straight across the chest, other hand draws it closer. Keep the shoulder DOWN — no shrugging. Gentle, not painful.'},
 
-        {exercise_slug: 'pallof-press',              order_index: 8, prescribed_sets: 3, prescribed_reps: 10, per_side: true},
+        {exercise_slug: 'pallof-press',              order_index: 8, prescribed_sets: 3, prescribed_reps: 10, per_side: true, hint: 'Band anchored at chest height, stand side-on. Press the handle straight out and resist the twist — the point is to NOT rotate.'},
       ],
     },
     {
       slug: 'surf2-rotation-wed',
       name: 'Rotation + Mobility',
       exercises: [
-        {exercise_slug: 'band-rotation',             order_index: 1, prescribed_sets: 3, prescribed_reps: 10, per_side: true},
-        {exercise_slug: 'dead-bug',                  order_index: 2, prescribed_sets: 3, prescribed_reps: 8, per_side: true},
+        {exercise_slug: 'band-rotation',             order_index: 1, prescribed_sets: 3, prescribed_reps: 10, per_side: true, hint: 'Band anchored at chest height, stand side-on. Rotate through torso AND hips, not just the arms. Control the way back.'},
+        {exercise_slug: 'dead-bug',                  order_index: 2, prescribed_sets: 3, prescribed_reps: 8, per_side: true, hint: 'Press the lower back gently into the floor and keep it there. Lower opposite arm and leg only as far as you can without the ribs flaring.'},
         {exercise_slug: 'jefferson-curl',            order_index: 3, prescribed_sets: 3, prescribed_reps: 8, hint: 'Light load — roll down slowly, vertebra by vertebra'},
 
         // Mobility circuit, 2 rounds
@@ -89,7 +89,7 @@ export const SURF2: PlanSeed = {
         {exercise_slug: 'tibialis-raise',            order_index: 7, prescribed_sets: 1, prescribed_reps: 25, as_maximum: true},
 
         // Core anchor, 2 rounds
-        {exercise_slug: 'mcgill-curlup',             order_index: 8, prescribed_sets: 1, prescribed_reps: 8,                  circuit_index: 2, circuit_rounds: 2},
+        {exercise_slug: 'mcgill-curlup',             order_index: 8, prescribed_sets: 1, prescribed_reps: 8,                  circuit_index: 2, circuit_rounds: 2, hint: 'One knee bent, hands under the lower back to keep its natural curve. Lift only head and shoulders a few cm — do NOT round or flatten the spine.'},
         {exercise_slug: 'ql-extension',              order_index: 9, prescribed_sets: 1, prescribed_reps: 12, per_side: true, circuit_index: 2, circuit_rounds: 2},
 
         {exercise_slug: 'hip-flexors',               order_index: 10, prescribed_sets: 1, prescribed_seconds: 60, per_side: true, hint: '1 Min Per Side'},
@@ -103,10 +103,10 @@ export const SURF2: PlanSeed = {
         {exercise_slug: 'atg-row',                   order_index: 2, prescribed_sets: 4, prescribed_reps: 12},
         {exercise_slug: 'external-rotation',         order_index: 3, prescribed_sets: 3, prescribed_reps: 15, per_side: true},
         {exercise_slug: 'superman',                  order_index: 4, prescribed_sets: 3, prescribed_reps: 15},
-        {exercise_slug: 'glute-bridge-single-leg',   order_index: 5, prescribed_sets: 3, prescribed_reps: 12, per_side: true},
+        {exercise_slug: 'glute-bridge-single-leg',   order_index: 5, prescribed_sets: 3, prescribed_reps: 12, per_side: true, hint: 'Drive through the planted heel until knee, hip and shoulder line up. Keep the pelvis level — do not let the free hip drop.'},
 
         // Finisher circuit, 2 rounds
-        {exercise_slug: 'side-plank',                order_index: 6, prescribed_sets: 1, prescribed_seconds: 30, per_side: true, circuit_index: 1, circuit_rounds: 2},
+        {exercise_slug: 'side-plank',                order_index: 6, prescribed_sets: 1, prescribed_seconds: 30, per_side: true, circuit_index: 1, circuit_rounds: 2, hint: 'Forearm under the shoulder, straight line head to feet, hips lifted. Drop to the bottom knee if the hips sag. Keep breathing.'},
         {exercise_slug: 'wall-pullover',             order_index: 7, prescribed_sets: 1, prescribed_reps: 15,                    circuit_index: 1, circuit_rounds: 2},
         {exercise_slug: 'elephant-walk',             order_index: 8, prescribed_sets: 1, prescribed_reps: 20, per_side: true,    circuit_index: 1, circuit_rounds: 2},
       ],
