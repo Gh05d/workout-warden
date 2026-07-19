@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-React Native 0.85 mobile app (TypeScript) for tracking strength + surf-conditioning workouts. Android is the primary target (iOS scaffolding is present but the SQLite path in `databaseService.ts` is Android-only). All workout data lives in a local SQLite database; the app makes one external network call (random dog image on startup).
+React Native 0.85 mobile app (TypeScript) for tracking strength + surf-conditioning workouts. Android is the primary target (iOS scaffolding is present but the SQLite path in `databaseService.ts` is Android-only). All workout data lives in a local SQLite database; the app makes one external network call (random dog image on startup). **The app must work fully offline** — that fetch is decorative, lives in its own effect in `App.tsx`, and is bounded by a 5 s `AbortController`. Never put it (or any network call) on the startup path: it previously sat in a `Promise.all` with `initDB()`, so an unreachable network held the splash screen open indefinitely, and a rejected fetch let the app render while seeding was still running. Only `initDB()` may gate `initiated`.
 
 **Schema version: v2** — a clean-slate, plan-driven schema replaced the v1 hardcoded A/B/C program model in version 2.0.0. There is no in-app migration from v1; the only path forward for a v1 user is the CLI import script (see "Legacy data import" below).
 
@@ -15,7 +15,7 @@ yarn start                       # Metro bundler with --reset-cache; sets USE_CO
 yarn android                     # Run debug build on connected device/emulator
 yarn ios                         # iOS run (untested path)
 yarn lint                        # ESLint
-yarn test                        # Jest (smoke test + seed/slugify unit tests)
+yarn test                        # Jest (smoke test, seed/slugify units, seed-migration against real SQLite)
 yarn test -- -t "renders"        # Run a single test by name
 
 yarn build-prod:android          # cd android && ./gradlew assembleRelease
@@ -46,7 +46,7 @@ Ten SQLite tables defined as `CREATE TABLE IF NOT EXISTS` statements in `src/com
 
 There is no schema versioning framework. New columns are added via the idempotent pattern at the top of `seedDB` — `try { ALTER TABLE … ADD COLUMN … } catch {}` — which is a no-op on fresh installs (column already exists in CREATE TABLE DDL) and a one-shot migration on upgrades. Use this sparingly; structural changes still need import-legacy.ts.
 
-**Template side** (immutable catalogue — populated from seeds, never edited by the user):
+**Template side** (populated from seeds, never edited by the user; rewritten only on a `SEED_REVISION` bump — see "Seed system"):
 
 - `plans` — top-level program (e.g. "Surf"). `slug` is unique. The currently active plan is recorded as `settings.active_plan_id`.
 - `session_templates` — a named workout (e.g. "Foundation A"). Unique by `slug`. Shared across plans by slug, but in practice each plan owns its templates.
@@ -72,17 +72,29 @@ Indexes back the lookup paths used by `fetchWeeksByPlan`, the Statistics SQL, an
 `src/seeds/` is the source of truth for exercise + plan content. Layout:
 
 - `src/seeds/exercises.ts` — exercise catalogue (`ExerciseSeed[]`).
-- `src/seeds/plans/<slug>.ts` — one file per plan (`PlanSeed`). Currently only `surf.ts`.
-- `src/seeds/index.ts` — barrel that exports `EXERCISES` and `PLANS`.
+- `src/seeds/plans/<slug>.ts` — one file per plan (`PlanSeed`): `surf.ts`, `surf-2.ts`, `strength.ts`.
+- `src/seeds/index.ts` — barrel that exports `EXERCISES`, `PLANS` and `SEED_REVISION`.
 
 On every app start, `initDB` runs the schema DDL and then `seedDB`. `seedDB`:
 
 1. Calls `validateSeed` (see `src/common/seedValidator.ts`) — this throws synchronously on duplicate slugs, missing exercise references, gappy `order_index` values, missing or conflicting prescription fields (`prescribed_reps` XOR `prescribed_seconds`), and inconsistent `circuit_rounds` within a `circuit_index`. **Seed drift fails fast at startup, before any rows are written.**
-2. Upserts all `EXERCISES` by `slug` (the catalogue can grow between releases without losing user data).
-3. For each plan: inserts the plan if missing, then inserts any missing `session_templates` (templates are *immutable* once inserted — their exercises are only written on first insert), then inserts any missing `plan_days`.
-4. Sets `settings.active_plan_id` to the first seeded plan if no active plan is recorded yet.
+2. Reads `settings.seed_revision` and compares it against `SEED_REVISION` (see below).
+3. Upserts all `EXERCISES` by `slug` (the catalogue can grow between releases without losing user data).
+4. For each plan: inserts the plan if missing, then inserts any missing `session_templates`, then inserts any missing `plan_days`. On a revision bump it additionally *rewrites* the content of rows that already exist.
+5. Writes `settings.seed_revision`.
+6. Sets `settings.active_plan_id` to the first seeded plan if no active plan is recorded yet.
 
 Adding a new plan means: drop a new file in `src/seeds/plans/`, add it to the `PLANS` array in `src/seeds/index.ts`, ship. Existing user data is untouched; the new plan becomes selectable.
+
+#### Changing an existing plan: bump `SEED_REVISION`
+
+`session_templates` and their `session_template_exercises` are **write-once per slug**. A device that has already seeded a plan will never see edits to that plan's prescriptions — and the plan is seeded on the *first app start after install*, not when the user switches to it or creates a week. Editing a shipped plan without a revision bump therefore silently does nothing on any device that already ran the app.
+
+`SEED_REVISION` (in `src/seeds/index.ts`) is the escape hatch. When it is greater than the stored `settings.seed_revision`, `seedDB` rewrites, for every plan: `plans.name`/`description`, `session_templates.name`, all `session_template_exercises` (delete + re-insert), and `plan_days` (template mapping + `weekday_label`).
+
+**Bump it whenever you change exercise selection, sets, reps, order, circuits or hints.** You do *not* need to bump for exercise `name`/`video`/`description` — those live on `exercises` and upsert on every start, so they can be backfilled at any time.
+
+This is safe for user data: weeks/sessions/sets hang off `session_exercises`, which is a *copy* taken by `createWeek`, and is never read back from the template. Fresh installs (no `plans` rows) skip the refresh entirely. `__tests__/seedMigration.test.ts` drives `seedDB` against real SQLite (`better-sqlite3`) and asserts fresh-install, idempotence, stale-revision rewrite, and that recorded sets survive a refresh — extend it when you touch this path.
 
 ### Navigation
 
@@ -185,6 +197,7 @@ That said, `tsc --noEmit` is **not clean** on this repo. Known pre-existing nois
 - ESLint: `eqeqeq` off (the codebase uses `==` deliberately), `react-native/no-inline-styles` off, `max-lines` warns at 500. `prettier/prettier` is an error.
 - Prettier: `singleQuote`, `bracketSpacing: false`, `bracketSameLine: true`, `arrowParens: 'avoid'`, `trailingComma: 'all'`.
 - Files mix `.ts` and `.tsx`; `.tsx` is reserved for modules that actually contain JSX. Data files (`seeds/*.ts`, `quotes.ts`, `theme.ts`, `types.ts`) are plain `.ts`.
+- **`src/seeds/plans/*.ts` deliberately violate prettier.** Each prescription row is one column-aligned line so the plan reads as a table. `eslint src/seeds/plans/surf.ts` reports errors on the committed code — that is expected, not new drift. Never run `--fix` / `prettier --write` on these files; match the sibling alignment instead. Verify seed changes with `jest __tests__/seeds.test.ts` (runs `validateSeed`) and `tsc --noEmit`, not with lint.
 
 ## Known stale code
 

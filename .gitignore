@@ -76,3 +76,5 @@ yarn-error.log
 # Claude Code / CodeGraph tooling artifacts
 .claude/
 .codegraph/
+# Local device DB backups (personal training data — never commit)
+.backups/
