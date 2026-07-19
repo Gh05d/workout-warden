@@ -1,9 +1,16 @@
 import {SQLiteDatabase, openDatabase} from 'react-native-sqlite-storage';
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import {Alert} from 'react-native';
-import {EXERCISES, PLANS} from '../seeds';
+import {EXERCISES, PLANS, SEED_REVISION} from '../seeds';
 import {validateSeed} from './seedValidator';
-import type {Plan, PlanDay, Session, ExerciseInstance, Week} from './types';
+import type {
+  ExercisePrescription,
+  Plan,
+  PlanDay,
+  Session,
+  ExerciseInstance,
+  Week,
+} from './types';
 
 const DB_NAME = 'warden.db';
 const DB_PATH_ANDROID = '/data/data/com.workoutwarden/databases/warden.db';
@@ -110,6 +117,42 @@ const SCHEMA: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sets_se             ON sets(session_exercise_id, set_index)`,
 ];
 
+// Writes a template's prescription rows. Callers must have cleared any existing
+// rows for this template first — session_template_exercises has no natural key
+// to upsert on.
+async function insertTemplateExercises(
+  db: SQLiteDatabase,
+  templateId: number,
+  exercises: ExercisePrescription[],
+): Promise<void> {
+  for (const ex of exercises) {
+    const [exRow] = await db.executeSql(
+      `SELECT id FROM exercises WHERE slug = ?`,
+      [ex.exercise_slug],
+    );
+    const exId = exRow.rows.item(0).id as number;
+    await db.executeSql(
+      `INSERT INTO session_template_exercises
+         (session_template_id, exercise_id, order_index, circuit_index, circuit_rounds,
+          prescribed_reps, prescribed_seconds, prescribed_sets, per_side, as_maximum, hint)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        templateId,
+        exId,
+        ex.order_index,
+        ex.circuit_index ?? null,
+        ex.circuit_rounds ?? null,
+        ex.prescribed_reps ?? null,
+        ex.prescribed_seconds ?? null,
+        ex.prescribed_sets,
+        ex.per_side ? 1 : 0,
+        ex.as_maximum ? 1 : 0,
+        ex.hint ?? null,
+      ],
+    );
+  }
+}
+
 export async function seedDB(db: SQLiteDatabase): Promise<void> {
   validateSeed({exercises: [...EXERCISES], plans: [...PLANS]});
 
@@ -121,6 +164,21 @@ export async function seedDB(db: SQLiteDatabase): Promise<void> {
   } catch {
     /* column already exists */
   }
+
+  // 0b. Seed revision: session_templates are write-once, so a device that already
+  // seeded a plan would keep its old prescriptions forever. When the seed revision
+  // moves ahead of the stored one, refresh template content in place. Safe for user
+  // data — weeks/sessions/sets hang off session_exercises, a copy taken at week
+  // creation, and are never read back from the template.
+  const [revRow] = await db.executeSql(
+    `SELECT value FROM settings WHERE key = 'seed_revision'`,
+  );
+  const storedRevision =
+    revRow.rows.length > 0 ? Number(revRow.rows.item(0).value) : 0;
+  // A fresh install has no plans yet — nothing to refresh, just record the revision.
+  const [planCount] = await db.executeSql(`SELECT COUNT(*) AS n FROM plans`);
+  const isFreshInstall = planCount.rows.item(0).n === 0;
+  const refreshTemplates = !isFreshInstall && storedRevision < SEED_REVISION;
 
   // 1. Upsert exercises (catalogue grows, never shrinks)
   for (const ex of EXERCISES) {
@@ -134,7 +192,7 @@ export async function seedDB(db: SQLiteDatabase): Promise<void> {
     );
   }
 
-  // 2. Per plan: insert if missing, leave existing plan content alone
+  // 2. Per plan: insert if missing; refresh name/description on a revision bump
   for (const plan of PLANS) {
     const [planRes] = await db.executeSql(
       `SELECT id FROM plans WHERE slug = ?`,
@@ -149,9 +207,16 @@ export async function seedDB(db: SQLiteDatabase): Promise<void> {
       planId = ins.insertId;
     } else {
       planId = planRes.rows.item(0).id;
+      if (refreshTemplates) {
+        await db.executeSql(
+          `UPDATE plans SET name = ?, description = ? WHERE id = ?`,
+          [plan.name, plan.description ?? null, planId],
+        );
+      }
     }
 
-    // 3. session_templates: insert only missing slugs (template content is immutable post-insert)
+    // 3. session_templates: insert missing slugs; on a revision bump, rewrite the
+    // prescriptions of the ones that already exist (write-once otherwise)
     const templateIdBySlug = new Map<string, number>();
     for (const tpl of plan.session_templates) {
       const [tplRes] = await db.executeSql(
@@ -165,56 +230,54 @@ export async function seedDB(db: SQLiteDatabase): Promise<void> {
           [tpl.slug, tpl.name],
         );
         tplId = ins.insertId;
-        // insert all exercises for this template
-        for (const ex of tpl.exercises) {
-          const [exRow] = await db.executeSql(
-            `SELECT id FROM exercises WHERE slug = ?`,
-            [ex.exercise_slug],
-          );
-          const exId = exRow.rows.item(0).id as number;
-          await db.executeSql(
-            `INSERT INTO session_template_exercises
-               (session_template_id, exercise_id, order_index, circuit_index, circuit_rounds,
-                prescribed_reps, prescribed_seconds, prescribed_sets, per_side, as_maximum, hint)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              tplId,
-              exId,
-              ex.order_index,
-              ex.circuit_index ?? null,
-              ex.circuit_rounds ?? null,
-              ex.prescribed_reps ?? null,
-              ex.prescribed_seconds ?? null,
-              ex.prescribed_sets,
-              ex.per_side ? 1 : 0,
-              ex.as_maximum ? 1 : 0,
-              ex.hint ?? null,
-            ],
-          );
-        }
+        await insertTemplateExercises(db, tplId, tpl.exercises);
       } else {
         tplId = tplRes.rows.item(0).id;
+        if (refreshTemplates) {
+          await db.executeSql(
+            `UPDATE session_templates SET name = ? WHERE id = ?`,
+            [tpl.name, tplId],
+          );
+          await db.executeSql(
+            `DELETE FROM session_template_exercises WHERE session_template_id = ?`,
+            [tplId],
+          );
+          await insertTemplateExercises(db, tplId, tpl.exercises);
+        }
       }
       templateIdBySlug.set(tpl.slug, tplId);
     }
 
-    // 4. plan_days: insert only missing (plan_id, day_index)
+    // 4. plan_days: insert missing (plan_id, day_index); on a revision bump also
+    // re-point existing days, in case a day now maps to a different template
     for (const day of plan.days) {
       const [dayRes] = await db.executeSql(
         `SELECT id FROM plan_days WHERE plan_id = ? AND day_index = ?`,
         [planId, day.day_index],
       );
+      const tplId = templateIdBySlug.get(day.session_template_slug)!;
       if (dayRes.rows.length === 0) {
-        const tplId = templateIdBySlug.get(day.session_template_slug)!;
         await db.executeSql(
           `INSERT INTO plan_days (plan_id, session_template_id, day_index, weekday_label) VALUES (?, ?, ?, ?)`,
           [planId, tplId, day.day_index, day.weekday_label ?? null],
+        );
+      } else if (refreshTemplates) {
+        await db.executeSql(
+          `UPDATE plan_days SET session_template_id = ?, weekday_label = ? WHERE id = ?`,
+          [tplId, day.weekday_label ?? null, dayRes.rows.item(0).id],
         );
       }
     }
   }
 
-  // 5. Default active_plan_id to the first seeded plan if not already set
+  // 5. Record the revision we just seeded/refreshed to
+  await db.executeSql(
+    `INSERT INTO settings (key, value) VALUES ('seed_revision', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    [String(SEED_REVISION)],
+  );
+
+  // 6. Default active_plan_id to the first seeded plan if not already set
   const [active] = await db.executeSql(
     `SELECT value FROM settings WHERE key = 'active_plan_id'`,
   );
