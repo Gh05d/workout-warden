@@ -254,6 +254,8 @@ const Exercise: React.FC<Props> = ({exercise, history, onFinishedChange}) => {
           <CountdownTimer
             close={close}
             duration={exercise.prescribed_seconds ?? 0}
+            ownerKey={`se-${exercise.id}`}
+            label={exercise.exercise_name}
           />
         )}
       </Modal>
