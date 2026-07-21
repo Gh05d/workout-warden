@@ -1,14 +1,15 @@
 // src/components/InlineTimer.tsx
 //
-// In-card countdown timer. State machine:
+// In-card countdown view over the global timerController. State machine
+// (owned by the controller, not this component):
 //   idle    → ▶ START (+ EDIT, EXPAND)
 //   running → ⏸ PAUSE (+ EXPAND)
 //   paused  → ↻ RESET ▶ RESUME (+ EXPAND)
-//   expired → ↻ RESET (digits blink, device vibrates)
+//   expired → ↻ RESET (digits blink; alarm rings until RESET/STOP)
 //
-// Edit mode is reachable only from idle (tap the time, or press EDIT).
-// The user-edited duration overrides the prescription for RESET, but is
-// not persisted — re-mount restores the seeded duration.
+// Only the card that started the timer (ownerKey) renders live state —
+// other cards keep showing their own idle prescription. Edit mode is
+// local: it changes the duration the NEXT start uses, nothing global.
 
 import React from 'react';
 import {Animated, Pressable, StyleSheet, TextInput, View} from 'react-native';
@@ -16,17 +17,16 @@ import MaterialIcons from '@react-native-vector-icons/material-icons';
 import {useKeepAwake} from '@sayem314/react-native-keep-awake';
 
 import AppText from './AppText';
-import {startAlarm, stopAlarm} from '../common/timerSound';
+import * as timerController from '../common/timerController';
+import {useTimer} from '../hooks/useTimer';
 import {colors} from '../common/theme';
 
 interface Props {
   duration: number;
+  ownerKey: string;
+  label?: string;
   onExpand?: () => void;
 }
-
-type Status = 'idle' | 'running' | 'paused' | 'expired';
-
-const ONE_SECOND_MS = 1000;
 
 function format(t: number): {mm: string; ss: string} {
   const safe = Math.max(0, Math.floor(t));
@@ -35,11 +35,17 @@ function format(t: number): {mm: string; ss: string} {
   return {mm: String(m).padStart(2, '0'), ss: String(s).padStart(2, '0')};
 }
 
-const InlineTimer: React.FC<Props> = ({duration, onExpand}) => {
-  // active target duration — starts as the prescription, replaced by edit-mode save
+const InlineTimer: React.FC<Props> = ({
+  duration,
+  ownerKey,
+  label,
+  onExpand,
+}) => {
+  // duration the next START uses — the prescription until edited
   const [target, setTarget] = React.useState(duration);
-  const [timeLeft, setTimeLeft] = React.useState(duration);
-  const [status, setStatus] = React.useState<Status>('idle');
+  const timer = useTimer(ownerKey);
+  const {status} = timer;
+  const timeLeft = timer.remaining ?? target;
 
   const [editing, setEditing] = React.useState(false);
   const [editMin, setEditMin] = React.useState('0');
@@ -47,22 +53,6 @@ const InlineTimer: React.FC<Props> = ({duration, onExpand}) => {
 
   const blink = React.useRef(new Animated.Value(1)).current;
   useKeepAwake();
-
-  // -- tick --
-  React.useEffect(() => {
-    if (status !== 'running') return;
-    const id = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(id);
-          setStatus('expired');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, ONE_SECOND_MS);
-    return () => clearInterval(id);
-  }, [status]);
 
   // -- blink while expired --
   React.useEffect(() => {
@@ -88,36 +78,25 @@ const InlineTimer: React.FC<Props> = ({duration, onExpand}) => {
     return () => loop.stop();
   }, [status, blink]);
 
-  // The alarm is driven by the status state machine, not from inside the
-  // tick updater (side effects in updaters break under double-invocation).
-  // Entering 'expired' starts vibration + sound; the cleanup stops both when
-  // the user leaves the state by any path — including unmount mid-alarm
-  // (e.g. user marks the exercise complete → Accordion collapses).
-  React.useEffect(() => {
-    if (status !== 'expired') return;
-    startAlarm();
-    return () => stopAlarm();
-  }, [status]);
-
   // re-sync if the prescription itself changes (e.g. re-mount with a new set)
   React.useEffect(() => {
     setTarget(duration);
-    setTimeLeft(duration);
-    setStatus('idle');
   }, [duration]);
 
   // -- actions --
   function startOrResume() {
-    if (timeLeft === 0) return;
-    setStatus('running');
+    if (status === 'paused') {
+      timerController.resume();
+      return;
+    }
+    if (target === 0) return;
+    timerController.start(target, ownerKey, label);
   }
   function pause() {
-    setStatus('paused');
+    timerController.pause();
   }
   function reset() {
-    // leaving 'expired' runs the alarm effect's cleanup → stopAlarm()
-    setTimeLeft(target);
-    setStatus('idle');
+    timerController.reset();
   }
   function enterEdit() {
     if (status !== 'idle') return;
@@ -129,9 +108,7 @@ const InlineTimer: React.FC<Props> = ({duration, onExpand}) => {
   function saveEdit() {
     const m = Math.max(0, parseInt(editMin, 10) || 0);
     const s = Math.max(0, Math.min(59, parseInt(editSec, 10) || 0));
-    const next = m * 60 + s;
-    setTarget(next);
-    setTimeLeft(next);
+    setTarget(m * 60 + s);
     setEditing(false);
   }
   function cancelEdit() {

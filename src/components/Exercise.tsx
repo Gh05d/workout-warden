@@ -197,6 +197,8 @@ const Exercise: React.FC<Props> = ({exercise, history, onFinishedChange}) => {
         {isTimed ? (
           <InlineTimer
             duration={exercise.prescribed_seconds ?? 0}
+            ownerKey={`se-${exercise.id}`}
+            label={exercise.exercise_name}
             onExpand={openTimer}
           />
         ) : (
