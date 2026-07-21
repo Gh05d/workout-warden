@@ -76,16 +76,23 @@ export async function handleNotifeeEvent({type, detail}: Event): Promise<void> {
     return;
   }
   // The AlarmManager expiry trigger fired (Doze belt-and-braces path).
+  // The FGS displays share this id and also emit DELIVERED — they are
+  // distinguishable because only they carry asForegroundService: true.
   if (
     type === EventType.DELIVERED &&
-    detail.notification?.id === TIMER_NOTIFICATION_ID
+    detail.notification?.id === TIMER_NOTIFICATION_ID &&
+    detail.notification?.android?.asForegroundService !== true
   ) {
     handlers.onExpiryTrigger();
   }
 }
 
 if (Platform.OS === 'android') {
-  notifee.onForegroundEvent(handleNotifeeEvent);
+  try {
+    notifee.onForegroundEvent(handleNotifeeEvent);
+  } catch (err) {
+    console.warn('Registering timer notification events failed', err);
+  }
 }
 
 let permissionAsked = false;
@@ -97,6 +104,7 @@ async function ensureChannels(): Promise<void> {
     id: CHANNEL_TIMER,
     name: 'Timer',
     importance: AndroidImportance.LOW, // silent, status-bar icon only
+    sound: undefined,
   });
   await notifee.createChannel({
     id: CHANNEL_EXPIRED,
@@ -127,7 +135,10 @@ export async function ensurePermission(): Promise<void> {
 const openApp = {id: 'default', launchActivity: 'default'} as const;
 
 /** Live countdown — SystemUI renders the chronometer, no per-second updates. */
-export async function showRunning(endAt: number, label?: string): Promise<void> {
+export async function showRunning(
+  endAt: number,
+  label?: string,
+): Promise<void> {
   if (Platform.OS !== 'android') return;
   try {
     await ensureChannels();

@@ -29,7 +29,7 @@ describe('showRunning', () => {
   it('displays a foreground-service chronometer notification with actions', async () => {
     await showRunning(1_700_000_000_000, 'Dead Hang');
     expect(mocked.displayNotification).toHaveBeenCalledTimes(1);
-    const arg = mocked.displayNotification.mock.calls[0][0];
+    const [[arg]] = mocked.displayNotification.mock.calls;
     expect(arg.id).toBe(TIMER_NOTIFICATION_ID);
     expect(arg.android?.asForegroundService).toBe(true);
     expect(arg.android?.showChronometer).toBe(true);
@@ -48,7 +48,7 @@ describe('showRunning', () => {
 describe('showPaused', () => {
   it('shows static remaining time without chronometer', async () => {
     await showPaused(83);
-    const arg = mocked.displayNotification.mock.calls[0][0];
+    const [[arg]] = mocked.displayNotification.mock.calls;
     expect(arg.body).toContain('1:23');
     expect(arg.android?.showChronometer).toBeUndefined();
     const ids = arg.android?.actions?.map(a => a.pressAction.id);
@@ -59,8 +59,8 @@ describe('showPaused', () => {
 describe('scheduleExpiryTrigger', () => {
   it('creates an exact allow-while-idle timestamp trigger', async () => {
     await scheduleExpiryTrigger(1_700_000_000_000);
-    const [notification, trigger] =
-      mocked.createTriggerNotification.mock.calls[0];
+    const [[notification, trigger]] =
+      mocked.createTriggerNotification.mock.calls;
     expect(notification.id).toBe(TIMER_NOTIFICATION_ID);
     expect(trigger).toMatchObject({
       timestamp: 1_700_000_000_000,
@@ -116,6 +116,27 @@ describe('handleNotifeeEvent', () => {
       detail: {notification: {id: TIMER_NOTIFICATION_ID}},
     } as any);
     expect(handlers.onExpiryTrigger).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores DELIVERED from FGS displays (asForegroundService: true)', async () => {
+    const handlers = {
+      pause: jest.fn(),
+      resume: jest.fn(),
+      restart: jest.fn(),
+      stop: jest.fn(),
+      onExpiryTrigger: jest.fn(),
+    };
+    wireTimerEvents(handlers);
+    await handleNotifeeEvent({
+      type: EventType.DELIVERED,
+      detail: {
+        notification: {
+          id: TIMER_NOTIFICATION_ID,
+          android: {asForegroundService: true},
+        },
+      },
+    } as any);
+    expect(handlers.onExpiryTrigger).not.toHaveBeenCalled();
   });
 
   it('ignores foreign notifications and unknown actions', async () => {
