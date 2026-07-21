@@ -145,3 +145,17 @@ test('subscribers fire on change and can unsubscribe', () => {
   controller.stop();
   expect(listener).not.toHaveBeenCalled();
 });
+
+test('stop during an in-flight start chain never schedules a stale trigger', async () => {
+  controller.start(60, 'se-1');
+  controller.stop(); // lands while start's notification chain is still pending
+  // start()'s chain is 4 links deep (ensurePermission -> cancel -> showRunning
+  // -> schedule); each link needs ~2 microtask ticks to settle through these
+  // async jest.fn mocks, so a handful of `await Promise.resolve()` isn't
+  // enough to let it run to completion — flush generously to be sure.
+  for (let i = 0; i < 10; i++) {
+    await Promise.resolve();
+  }
+  expect(notification.scheduleExpiryTrigger).not.toHaveBeenCalled();
+  expect(notification.hide).toHaveBeenCalled();
+});

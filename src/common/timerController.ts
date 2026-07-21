@@ -2,8 +2,12 @@
 //
 // The single global workout timer. There is exactly one active timer;
 // starting a new one replaces it. State lives outside React so the timer
-// keeps running when cards unmount and while the app is backgrounded
-// (the notifee foreground service keeps the JS runtime ticking).
+// keeps running when cards unmount and while the app is backgrounded.
+// Background correctness does NOT come from the foreground service — RN's
+// Timing module pauses setInterval on host-pause regardless of the FGS. It
+// comes from wall-clock derivation, the AlarmManager expiry trigger, and
+// the AppState recompute on return to foreground; the FGS's job is keeping
+// the process alive and the notification ongoing.
 //
 // Time is wall-clock based: start() records an absolute end timestamp
 // and remaining time is always derived from Date.now(). The tick only
@@ -44,6 +48,14 @@ let label: string | undefined;
 let endAt: number | null = null; // epoch ms while running
 let remainingAtPause = 0;
 let tick: ReturnType<typeof setInterval> | null = null;
+
+// Each public transition that touches the notification layer bumps this
+// and captures its own value as `gen`. Every step of that transition's
+// `.then` chain re-checks `gen === opGen` before doing anything: a newer
+// transition invalidates the async tail of every older one. State itself
+// is already synchronous by the time a transition returns — this only
+// serializes the notification/alarm-trigger side effects that trail it.
+let opGen = 0;
 
 const listeners = new Set<Listener>();
 let snapshot: TimerSnapshot = {
@@ -101,11 +113,13 @@ function expire(): void {
   endAt = null;
   emit();
   startAlarm();
+  const gen = ++opGen;
   // Cancel BEFORE showing: trigger and display share one notification id,
   // and cancelling the trigger also removes a displayed notification.
-  timerNotification
-    .cancelExpiryTrigger()
-    .then(() => timerNotification.showExpired(label));
+  timerNotification.cancelExpiryTrigger().then(() => {
+    if (gen !== opGen) return;
+    return timerNotification.showExpired(label);
+  });
 }
 
 // -- public API ------------------------------------------------------------
@@ -126,11 +140,21 @@ export function start(
   startTick();
   emit();
   const at = endAt;
+  const gen = ++opGen;
   timerNotification
     .ensurePermission()
-    .then(() => timerNotification.cancelExpiryTrigger())
-    .then(() => timerNotification.showRunning(at, label))
-    .then(() => timerNotification.scheduleExpiryTrigger(at, label));
+    .then(() => {
+      if (gen !== opGen) return;
+      return timerNotification.cancelExpiryTrigger();
+    })
+    .then(() => {
+      if (gen !== opGen) return;
+      return timerNotification.showRunning(at, label);
+    })
+    .then(() => {
+      if (gen !== opGen) return;
+      return timerNotification.scheduleExpiryTrigger(at, label);
+    });
 }
 
 export function pause(): void {
@@ -140,9 +164,11 @@ export function pause(): void {
   endAt = null;
   stopTick();
   emit();
-  timerNotification
-    .cancelExpiryTrigger()
-    .then(() => timerNotification.showPaused(remainingAtPause, label));
+  const gen = ++opGen;
+  timerNotification.cancelExpiryTrigger().then(() => {
+    if (gen !== opGen) return;
+    return timerNotification.showPaused(remainingAtPause, label);
+  });
 }
 
 export function resume(): void {
@@ -152,9 +178,11 @@ export function resume(): void {
   startTick();
   emit();
   const at = endAt;
-  timerNotification
-    .showRunning(at, label)
-    .then(() => timerNotification.scheduleExpiryTrigger(at, label));
+  const gen = ++opGen;
+  timerNotification.showRunning(at, label).then(() => {
+    if (gen !== opGen) return;
+    return timerNotification.scheduleExpiryTrigger(at, label);
+  });
 }
 
 /** In-app RESET: back to idle at full duration; notification goes away. */
@@ -165,7 +193,11 @@ export function reset(): void {
   endAt = null;
   remainingAtPause = 0;
   emit();
-  timerNotification.cancelExpiryTrigger().then(() => timerNotification.hide());
+  const gen = ++opGen;
+  timerNotification.cancelExpiryTrigger().then(() => {
+    if (gen !== opGen) return;
+    return timerNotification.hide();
+  });
 }
 
 /** Notification RESET: restart the same timer from its full duration. */
@@ -185,7 +217,11 @@ export function stop(): void {
   label = undefined;
   target = 0;
   emit();
-  timerNotification.cancelExpiryTrigger().then(() => timerNotification.hide());
+  const gen = ++opGen;
+  timerNotification.cancelExpiryTrigger().then(() => {
+    if (gen !== opGen) return;
+    return timerNotification.hide();
+  });
 }
 
 export function subscribe(listener: Listener): () => void {
@@ -223,6 +259,7 @@ timerNotification.wireTimerEvents({
 /** Test-only: restore pristine module state between test cases. */
 export function _resetForTests(): void {
   stopTick();
+  opGen++; // invalidate any in-flight notification chain from the previous test
   status = 'idle';
   target = 0;
   ownerKey = null;

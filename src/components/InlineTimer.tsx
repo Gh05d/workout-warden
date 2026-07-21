@@ -46,6 +46,7 @@ const InlineTimer: React.FC<Props> = ({
   const timer = useTimer(ownerKey);
   const {status} = timer;
   const timeLeft = timer.remaining ?? target;
+  const effectiveTarget = timer.target ?? target;
 
   const [editing, setEditing] = React.useState(false);
   const [editMin, setEditMin] = React.useState('0');
@@ -116,7 +117,7 @@ const InlineTimer: React.FC<Props> = ({
   }
 
   const {mm, ss} = format(timeLeft);
-  const progress = target === 0 ? 0 : 1 - timeLeft / target;
+  const progress = effectiveTarget === 0 ? 0 : 1 - timeLeft / effectiveTarget;
   const showProgress = status === 'running' || status === 'paused';
 
   if (editing) {

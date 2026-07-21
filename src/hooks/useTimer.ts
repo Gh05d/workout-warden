@@ -13,6 +13,7 @@ import type {TimerStatus} from '../common/timerController';
 export interface OwnedTimer {
   status: TimerStatus;
   remaining: number | null;
+  target: number | null;
   isOwner: boolean;
 }
 
@@ -20,7 +21,12 @@ export function useTimer(ownerKey: string): OwnedTimer {
   const snap = useSyncExternalStore(subscribe, getSnapshot);
   const isOwner = snap.ownerKey === ownerKey;
   if (!isOwner || snap.status === 'idle') {
-    return {status: 'idle', remaining: null, isOwner};
+    return {status: 'idle', remaining: null, target: null, isOwner};
   }
-  return {status: snap.status, remaining: snap.remaining, isOwner};
+  return {
+    status: snap.status,
+    remaining: snap.remaining,
+    target: snap.target,
+    isOwner,
+  };
 }
