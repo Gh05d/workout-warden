@@ -18,6 +18,7 @@ import {
   hide,
   wireTimerEvents,
 } from '../src/common/timerNotification';
+import {formatTime} from '../src/common/functions';
 
 const mocked = notifee as jest.Mocked<typeof notifee>;
 
@@ -26,33 +27,50 @@ beforeEach(() => {
 });
 
 describe('showRunning', () => {
-  it('displays a foreground-service chronometer notification with actions', async () => {
-    await showRunning(1_700_000_000_000, 'Dead Hang');
+  it('shows a central countdown title with a filling progress bar and actions', async () => {
+    await showRunning(37, 90, 'Dead Hang');
     expect(mocked.displayNotification).toHaveBeenCalledTimes(1);
     const [[arg]] = mocked.displayNotification.mock.calls;
     expect(arg.id).toBe(TIMER_NOTIFICATION_ID);
+    expect(arg.title).toBe(formatTime(37));
+    expect(arg.body).toBe('Dead Hang');
     expect(arg.android?.asForegroundService).toBe(true);
-    expect(arg.android?.showChronometer).toBe(true);
-    expect(arg.android?.chronometerDirection).toBe('down');
-    expect(arg.android?.timestamp).toBe(1_700_000_000_000);
+    expect(arg.android?.progress).toEqual({max: 90, current: 53});
+    expect(arg.android?.showChronometer).toBeUndefined();
+    expect(arg.android?.chronometerDirection).toBeUndefined();
+    expect(arg.android?.timestamp).toBeUndefined();
     const ids = arg.android?.actions?.map(a => a.pressAction.id);
     expect(ids).toEqual(['timer-pause', 'timer-restart', 'timer-stop']);
   });
 
+  it('falls back to a default body when no label is given', async () => {
+    await showRunning(10, 10);
+    const [[arg]] = mocked.displayNotification.mock.calls;
+    expect(arg.body).toBe('Workout timer');
+  });
+
   it('swallows notifee errors', async () => {
     mocked.displayNotification.mockRejectedValueOnce(new Error('boom'));
-    await expect(showRunning(1)).resolves.toBeUndefined();
+    await expect(showRunning(1, 1)).resolves.toBeUndefined();
   });
 });
 
 describe('showPaused', () => {
-  it('shows static remaining time without chronometer', async () => {
-    await showPaused(83);
+  it('shows the central countdown title and a frozen progress bar', async () => {
+    await showPaused(83, 120, 'Dead Hang');
     const [[arg]] = mocked.displayNotification.mock.calls;
-    expect(arg.body).toContain('1:23');
+    expect(arg.title).toBe(formatTime(83));
+    expect(arg.body).toBe('PAUSED · Dead Hang');
+    expect(arg.android?.progress).toEqual({max: 120, current: 37});
     expect(arg.android?.showChronometer).toBeUndefined();
     const ids = arg.android?.actions?.map(a => a.pressAction.id);
     expect(ids).toEqual(['timer-resume', 'timer-restart', 'timer-stop']);
+  });
+
+  it('omits the label separator when no label is given', async () => {
+    await showPaused(83, 120);
+    const [[arg]] = mocked.displayNotification.mock.calls;
+    expect(arg.body).toBe('PAUSED');
   });
 });
 

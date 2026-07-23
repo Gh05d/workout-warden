@@ -12,7 +12,13 @@
 // Time is wall-clock based: start() records an absolute end timestamp
 // and remaining time is always derived from Date.now(). The tick only
 // refreshes subscribers — even if Android freezes JS for minutes, the
-// timer is correct the moment anything recomputes.
+// timer is correct the moment anything recomputes. On Android, the tick
+// itself comes from the native TimerTick module (a Handler-driven ticker
+// in the FGS process) rather than JS setInterval, precisely because that
+// setInterval pause on host-pause would otherwise freeze the running
+// notification's per-second countdown the moment the user backgrounds the
+// app; iOS and Jest fall back to setInterval since there's no FGS process
+// to keep ticking in the background there anyway.
 //
 // This module is the only caller of the notification layer
 // (timerNotification.ts) and the alarm (timerSound.ts). Components and
@@ -20,7 +26,7 @@
 // and notification in sync by construction. Notification calls are
 // fire-and-forget: they never gate a state transition.
 
-import {AppState} from 'react-native';
+import {AppState, DeviceEventEmitter, NativeModules} from 'react-native';
 
 import {startAlarm, stopAlarm} from './timerSound';
 import * as timerNotification from './timerNotification';
@@ -48,6 +54,17 @@ let label: string | undefined;
 let endAt: number | null = null; // epoch ms while running
 let remainingAtPause = 0;
 let tick: ReturnType<typeof setInterval> | null = null;
+let tickSubscription: {remove(): void} | null = null;
+
+// Gates per-second notification refreshes from onTick(). Only true once
+// the initial showRunning() for the current running span has resolved
+// (i.e. the permission flow + channel creation are done and gen is still
+// valid) — this stops a tick from calling displayNotification before the
+// FGS notification exists, or racing a transition's own chain. Reset to
+// false (and lastNotifiedRemaining to null) at the start of every
+// transition that leaves or re-enters 'running'.
+let notifLive = false;
+let lastNotifiedRemaining: number | null = null;
 
 // Each public transition that touches the notification layer bumps this
 // and captures its own value as `gen`. Every step of that transition's
@@ -91,11 +108,25 @@ function emit(): void {
 function stopTick(): void {
   if (tick != null) clearInterval(tick);
   tick = null;
+  if (tickSubscription != null) {
+    tickSubscription.remove();
+    tickSubscription = null;
+    NativeModules.TimerTick?.stop();
+  }
 }
 
 function startTick(): void {
   stopTick();
-  tick = setInterval(onTick, TICK_MS);
+  if (NativeModules.TimerTick != null) {
+    tickSubscription = DeviceEventEmitter.addListener(
+      'WorkoutTimerTick',
+      onTick,
+    );
+    NativeModules.TimerTick.start(TICK_MS);
+  } else {
+    // iOS / Jest: no native ticker, fall back to JS setInterval.
+    tick = setInterval(onTick, TICK_MS);
+  }
 }
 
 function onTick(): void {
@@ -105,10 +136,24 @@ function onTick(): void {
     return;
   }
   emit();
+  if (status === 'running' && notifLive) {
+    const remaining = currentRemaining();
+    if (remaining !== lastNotifiedRemaining) {
+      lastNotifiedRemaining = remaining;
+      // Fire-and-forget, dispatched synchronously in this task (no await
+      // before this call): JS is single-threaded, so no transition can
+      // interleave between the notifLive check and this dispatch, and
+      // notifee's bridge calls are processed FIFO — a later hide()/show()
+      // from a transition always lands after this in-flight update.
+      timerNotification.showRunning(remaining, target, label);
+    }
+  }
 }
 
 function expire(): void {
   stopTick();
+  notifLive = false;
+  lastNotifiedRemaining = null;
   status = 'expired';
   endAt = null;
   emit();
@@ -131,6 +176,8 @@ export function start(
 ): void {
   stopAlarm(); // a replaced timer may be mid-alarm
   stopTick();
+  notifLive = false;
+  lastNotifiedRemaining = null;
   status = 'running';
   target = durationSec;
   ownerKey = owner;
@@ -149,10 +196,14 @@ export function start(
     })
     .then(() => {
       if (gen !== opGen) return;
-      return timerNotification.showRunning(at, label);
+      return timerNotification.showRunning(durationSec, durationSec, label);
     })
     .then(() => {
       if (gen !== opGen) return;
+      notifLive = true;
+      // Sync to the value just displayed so the first tick doesn't
+      // redundantly re-show the same remaining time as a "change".
+      lastNotifiedRemaining = durationSec;
       return timerNotification.scheduleExpiryTrigger(at, label);
     });
 }
@@ -160,6 +211,8 @@ export function start(
 export function pause(): void {
   if (status !== 'running') return;
   remainingAtPause = currentRemaining();
+  notifLive = false;
+  lastNotifiedRemaining = null;
   status = 'paused';
   endAt = null;
   stopTick();
@@ -167,7 +220,7 @@ export function pause(): void {
   const gen = ++opGen;
   timerNotification.cancelExpiryTrigger().then(() => {
     if (gen !== opGen) return;
-    return timerNotification.showPaused(remainingAtPause, label);
+    return timerNotification.showPaused(remainingAtPause, target, label);
   });
 }
 
@@ -178,9 +231,13 @@ export function resume(): void {
   startTick();
   emit();
   const at = endAt;
+  const remaining = remainingAtPause;
   const gen = ++opGen;
-  timerNotification.showRunning(at, label).then(() => {
+  timerNotification.showRunning(remaining, target, label).then(() => {
     if (gen !== opGen) return;
+    notifLive = true;
+    // Sync to the value just displayed — see start() for why.
+    lastNotifiedRemaining = remaining;
     return timerNotification.scheduleExpiryTrigger(at, label);
   });
 }
@@ -189,6 +246,8 @@ export function resume(): void {
 export function reset(): void {
   stopAlarm();
   stopTick();
+  notifLive = false;
+  lastNotifiedRemaining = null;
   status = 'idle';
   endAt = null;
   remainingAtPause = 0;
@@ -210,6 +269,8 @@ export function restart(): void {
 export function stop(): void {
   stopAlarm();
   stopTick();
+  notifLive = false;
+  lastNotifiedRemaining = null;
   status = 'idle';
   endAt = null;
   remainingAtPause = 0;
@@ -258,8 +319,10 @@ timerNotification.wireTimerEvents({
 
 /** Test-only: restore pristine module state between test cases. */
 export function _resetForTests(): void {
-  stopTick();
+  stopTick(); // also tears down the tick subscription, if any
   opGen++; // invalidate any in-flight notification chain from the previous test
+  notifLive = false;
+  lastNotifiedRemaining = null;
   status = 'idle';
   target = 0;
   ownerKey = null;

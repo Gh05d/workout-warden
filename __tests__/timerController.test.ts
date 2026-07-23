@@ -159,3 +159,67 @@ test('stop during an in-flight start chain never schedules a stale trigger', asy
   expect(notification.scheduleExpiryTrigger).not.toHaveBeenCalled();
   expect(notification.hide).toHaveBeenCalled();
 });
+
+describe('running notification tick refresh (notifLive gate)', () => {
+  const showRunning = notification.showRunning as unknown as jest.Mock;
+  const showPaused = notification.showPaused as unknown as jest.Mock;
+
+  // start()'s chain is 4 links deep; flush generously (see the "stop during
+  // an in-flight start chain" test above for why a handful isn't enough).
+  async function flushStartChain() {
+    for (let i = 0; i < 10; i++) {
+      await Promise.resolve();
+    }
+  }
+
+  test('ticks before the start chain resolves do not touch the notification', () => {
+    controller.start(10, 'a');
+    // No `await` here: the ensurePermission -> ... -> showRunning chain
+    // hasn't had a chance to run, so notifLive is still false.
+    jest.advanceTimersByTime(1000);
+    expect(showRunning).not.toHaveBeenCalled();
+  });
+
+  test('refreshes the running notification once per elapsed second once notifLive', async () => {
+    controller.start(10, 'a');
+    await flushStartChain();
+    // The start chain's own call: full duration, nothing elapsed yet.
+    expect(showRunning).toHaveBeenCalledWith(10, 10, undefined);
+    showRunning.mockClear();
+
+    jest.advanceTimersByTime(1000);
+    expect(showRunning).toHaveBeenCalledTimes(1);
+    expect(showRunning).toHaveBeenCalledWith(9, 10, undefined);
+
+    jest.advanceTimersByTime(1000);
+    expect(showRunning).toHaveBeenCalledTimes(2);
+    expect(showRunning).toHaveBeenLastCalledWith(8, 10, undefined);
+  });
+
+  test('does not refresh twice within the same elapsed second', async () => {
+    controller.start(10, 'a');
+    await flushStartChain();
+    showRunning.mockClear();
+
+    jest.advanceTimersByTime(1000);
+    expect(showRunning).toHaveBeenCalledTimes(1);
+    showRunning.mockClear();
+
+    jest.advanceTimersByTime(250); // still inside the same elapsed second
+    expect(showRunning).not.toHaveBeenCalled();
+  });
+
+  test('pause stops further tick refreshes', async () => {
+    controller.start(10, 'a');
+    await flushStartChain();
+    jest.advanceTimersByTime(1000);
+    showRunning.mockClear();
+
+    controller.pause();
+    await flushStartChain();
+    expect(showPaused).toHaveBeenCalledWith(9, 10, undefined);
+
+    jest.advanceTimersByTime(2000); // ticks are stopped; nothing to refresh
+    expect(showRunning).not.toHaveBeenCalled();
+  });
+});

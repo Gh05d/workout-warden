@@ -134,9 +134,15 @@ export async function ensurePermission(): Promise<void> {
 
 const openApp = {id: 'default', launchActivity: 'default'} as const;
 
-/** Live countdown — SystemUI renders the chronometer, no per-second updates. */
+/**
+ * Live countdown — the countdown itself is the bold title (central,
+ * prominent placement) and android.progress fills as time elapses.
+ * Per-second refreshes are driven by the native TimerTick module calling
+ * this repeatedly (see timerController.ts); there is no chronometer.
+ */
 export async function showRunning(
-  endAt: number,
+  remainingSec: number,
+  totalSec: number,
   label?: string,
 ): Promise<void> {
   if (Platform.OS !== 'android') return;
@@ -144,8 +150,8 @@ export async function showRunning(
     await ensureChannels();
     await notifee.displayNotification({
       id: TIMER_NOTIFICATION_ID,
-      title: 'REST TIMER',
-      body: label,
+      title: formatTime(remainingSec),
+      body: label ?? 'Workout timer',
       android: {
         channelId: CHANNEL_TIMER,
         asForegroundService: true,
@@ -156,9 +162,7 @@ export async function showRunning(
         ongoing: true,
         autoCancel: false,
         onlyAlertOnce: true,
-        showChronometer: true,
-        chronometerDirection: 'down',
-        timestamp: endAt,
+        progress: {max: totalSec, current: totalSec - remainingSec},
         pressAction: openApp,
         actions: [
           {title: 'Pause', pressAction: {id: ACTION_PAUSE}},
@@ -174,6 +178,7 @@ export async function showRunning(
 
 export async function showPaused(
   remainingSec: number,
+  totalSec: number,
   label?: string,
 ): Promise<void> {
   if (Platform.OS !== 'android') return;
@@ -181,8 +186,8 @@ export async function showPaused(
     await ensureChannels();
     await notifee.displayNotification({
       id: TIMER_NOTIFICATION_ID,
-      title: 'REST TIMER',
-      body: `PAUSED · ${formatTime(remainingSec)}${label ? ` — ${label}` : ''}`,
+      title: formatTime(remainingSec),
+      body: `PAUSED${label ? ' · ' + label : ''}`,
       android: {
         channelId: CHANNEL_TIMER,
         asForegroundService: true,
@@ -193,6 +198,7 @@ export async function showPaused(
         ongoing: true,
         autoCancel: false,
         onlyAlertOnce: true,
+        progress: {max: totalSec, current: totalSec - remainingSec},
         pressAction: openApp,
         actions: [
           {title: 'Resume', pressAction: {id: ACTION_RESUME}},
