@@ -33,12 +33,20 @@ class TimerTickModule(reactContext: ReactApplicationContext) :
     val runnable =
         object : Runnable {
           override fun run() {
-            if (reactApplicationContext.hasActiveReactInstance()) {
-              reactApplicationContext
-                  .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-                  .emit("WorkoutTimerTick", null)
+            // Take the same monitor as start()/stop() and repost only while
+            // still the current runnable: removeCallbacks() can't reach an
+            // already-dequeued run(), so without this check a stop() racing
+            // a mid-flight tick leaves a self-reposting zombie loop that no
+            // later call can ever cancel.
+            synchronized(this@TimerTickModule) {
+              if (tickRunnable !== this) return
+              if (reactApplicationContext.hasActiveReactInstance()) {
+                reactApplicationContext
+                    .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                    .emit("WorkoutTimerTick", null)
+              }
+              handler.postDelayed(this, interval)
             }
-            handler.postDelayed(this, interval)
           }
         }
     tickRunnable = runnable
