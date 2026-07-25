@@ -4,9 +4,11 @@
 // boxes, each showing the weekday initial, tinted by the plan trained that day
 // (done shows a check, today gets an ink ring). Days the active plan schedules
 // but that hold no log yet get a quiet dot; unscheduled days recede as rest
-// days. A run track under the boxes joins consecutive trained days, so a streak
-// reads as one continuous bar. Reads the same map as the heatmap below it; it
-// is the heatmap's newest column, rotated and labeled.
+// days. A run track under the boxes spans the plan's training days only — rest
+// days are excluded so the track reads as full once every training day is
+// logged — and joins consecutive trained days into one continuous bar. Reads the
+// same map as the heatmap below it; it is the heatmap's newest column, rotated
+// and labeled.
 
 import React from 'react';
 import {StyleSheet, View} from 'react-native';
@@ -15,6 +17,7 @@ import AppText from './AppText';
 import {colors} from '../common/theme';
 import {planColor} from '../common/planColor';
 import {currentWeekCells} from './heatmapMath';
+import type {WeekDayCell} from './heatmapMath';
 import type {HeatmapDatum} from '../common/databaseService';
 
 interface Props {
@@ -31,6 +34,18 @@ interface Props {
 // gaps between the day boxes, which is what makes a run look continuous.
 const CELL_GAP = 4;
 
+/** Whether a day belongs on the run track at all. Rest days are left out
+ * entirely, so the track spans only the plan's training window and reads as
+ * full once every training day is logged — a track spanning all seven days
+ * could never fill for a Mon–Fri plan. Off-plan sessions still count. */
+function inTrack(cell: WeekDayCell): boolean {
+  return cell.scheduled || cell.trained;
+}
+
+function trackFill(planId: number | null): string {
+  return planId != null ? planColor(planId).fg : colors.faint;
+}
+
 const CurrentWeekStrip: React.FC<Props> = ({
   data,
   weekProgress,
@@ -45,7 +60,7 @@ const CurrentWeekStrip: React.FC<Props> = ({
 
   const dotColor =
     activePlanId != null ? planColor(activePlanId).fg : colors.faint;
-  const anyTrained = cells.some(cell => cell.trained);
+  const trackVisible = cells.some(inTrack);
 
   return (
     <View style={styles.card}>
@@ -99,34 +114,40 @@ const CurrentWeekStrip: React.FC<Props> = ({
           })}
         </View>
 
-        {anyTrained && (
+        {trackVisible && (
           <View style={styles.track}>
             {cells.map((cell, i) => {
               const prev = i > 0 ? cells[i - 1] : null;
-              // A connector fills only between two trained days, taking the
-              // left day's plan colour when the two plans differ.
-              const joined = !!prev && prev.trained && cell.trained;
+              const prevInTrack = !!prev && inTrack(prev);
+              const prevTrained = !!prev && prev.trained;
+              const prevPlanId = prev ? prev.planId : null;
+              // Filled = trained (plan colour). Unfilled-but-present = a
+              // training day still owed (rule grey). A connector bridges its
+              // two neighbours at the weaker of their two states, taking the
+              // left day's plan colour when both are trained.
+              const segment = cell.trained
+                ? trackFill(cell.planId)
+                : inTrack(cell)
+                  ? colors.rule
+                  : 'transparent';
+              const connector =
+                prevTrained && cell.trained
+                  ? trackFill(prevPlanId)
+                  : prevInTrack && inTrack(cell)
+                    ? colors.rule
+                    : 'transparent';
               return (
                 <React.Fragment key={cell.key}>
                   {i > 0 && (
                     <View
                       style={[
                         styles.trackConnector,
-                        joined &&
-                          prev.planId != null && {
-                            backgroundColor: planColor(prev.planId).fg,
-                          },
+                        {backgroundColor: connector},
                       ]}
                     />
                   )}
                   <View
-                    style={[
-                      styles.trackSegment,
-                      cell.trained &&
-                        cell.planId != null && {
-                          backgroundColor: planColor(cell.planId).fg,
-                        },
-                    ]}
+                    style={[styles.trackSegment, {backgroundColor: segment}]}
                   />
                 </React.Fragment>
               );
