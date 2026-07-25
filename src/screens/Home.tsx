@@ -10,6 +10,7 @@ import {
 } from '@react-native-documents/picker';
 
 import AppText from '../components/AppText';
+import CurrentWeekStrip from '../components/CurrentWeekStrip';
 import HeatmapCard from '../components/HeatmapCard';
 import Loading from '../components/Loading';
 import NextSessionCard from '../components/NextSessionCard';
@@ -35,14 +36,19 @@ import {
   setActivePlanId,
 } from '../common/databaseService';
 import type {BaseProps, Plan, Session, Week} from '../common/types';
-import type {HomeSummary as HomeSummaryShape} from '../common/databaseService';
+import type {
+  HomeSummary as HomeSummaryShape,
+  HeatmapDatum,
+} from '../common/databaseService';
 
 const Home: React.FC<BaseProps> = ({route, navigation}) => {
   const {puppy} = route?.params as {puppy: string};
 
   const [summary, setSummary] = React.useState<HomeSummaryShape | null>(null);
   const [plans, setPlans] = React.useState<Plan[]>([]);
-  const [heatmap, setHeatmap] = React.useState<Map<string, number>>(new Map());
+  const [heatmap, setHeatmap] = React.useState<Map<string, HeatmapDatum>>(
+    new Map(),
+  );
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
   const [modalVisible, setModalVisible] = React.useState(false);
@@ -183,7 +189,20 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
               />
             )}
 
-            <HeatmapCard data={heatmap} />
+            <CurrentWeekStrip
+              data={heatmap}
+              weekProgress={
+                summary.currentWeek
+                  ? {
+                      done: summary.currentWeek.sessions.filter(s => s.finished)
+                        .length,
+                      total: summary.currentWeek.sessions.length,
+                    }
+                  : null
+              }
+            />
+
+            <HeatmapCard data={heatmap} plans={plans} />
           </>
         )}
 
