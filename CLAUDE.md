@@ -34,7 +34,7 @@ Yarn berry is wired but **broken** — `.yarnrc.yml` points at a missing `.yarn/
 
 ### Sideloading to the Pixel 7
 
-`adb -s 34061FDH2005AW install -r app-release.apk` reliably prints `failed: Performing Streamed Install` even on successful installs. Verify the install actually happened with `adb -s 34061FDH2005AW shell dumpsys package com.workoutwarden | grep -E "versionName|lastUpdateTime"`. The USB connection on this device drops frequently — re-issue the `dumpsys` command after a few seconds if it returns nothing.
+`adb -s 34061FDH2005AW install -r app-release.apk` reliably prints `failed: Performing Streamed Install` even on successful installs. Verify the install actually happened with `adb -s 34061FDH2005AW shell dumpsys package com.workoutwarden | grep -E "versionName|lastUpdateTime"`. The USB connection on this device drops frequently — re-issue the `dumpsys` command after a few seconds if it returns nothing. If `dumpsys` reports the *previous* version right after an install, the connection dropped mid-verify rather than the install failing: `adb kill-server && adb start-server`, then re-check (`adb reconnect` is not enough).
 
 Always bump the version *before* sideloading so `versionName` is the verification: `npm version patch --no-git-tag-version && node update-android-version.js`.
 
@@ -92,7 +92,7 @@ Adding a new plan means: drop a new file in `src/seeds/plans/`, add it to the `P
 
 `SEED_REVISION` (in `src/seeds/index.ts`) is the escape hatch. When it is greater than the stored `settings.seed_revision`, `seedDB` rewrites, for every plan: `plans.name`/`description`, `session_templates.name`, all `session_template_exercises` (delete + re-insert), and `plan_days` (template mapping + `weekday_label`).
 
-**Bump it whenever you change exercise selection, sets, reps, order, circuits or hints.** You do *not* need to bump for exercise `name`/`video`/`description` — those live on `exercises` and upsert on every start, so they can be backfilled at any time.
+**Bump it whenever you change exercise selection, sets, reps, order, circuits or hints — or a plan's `days` (day→template mapping, `weekday_label`).** You do *not* need to bump for exercise `name`/`video`/`description` — those live on `exercises` and upsert on every start, so they can be backfilled at any time.
 
 This is safe for user data: weeks/sessions/sets hang off `session_exercises`, which is a *copy* taken by `createWeek`, and is never read back from the template. Fresh installs (no `plans` rows) skip the refresh entirely. `__tests__/seedMigration.test.ts` drives `seedDB` against real SQLite (`better-sqlite3`) and asserts fresh-install, idempotence, stale-revision rewrite, and that recorded sets survive a refresh — extend it when you touch this path.
 
@@ -149,6 +149,8 @@ The script is meant to run once on a developer machine, producing a `warden.db` 
 - **Quotes** come from `src/common/quotes.ts` (extracted from the deleted `variables.tsx`) — a flat list picked randomly on Home mount.
 - **Theme** lives in `src/common/theme.ts`. It is the single source of truth for the `colors` palette used by `NavigationContainer` and component styles.
 - **`Accordion` unmounts its children when collapsed** (`{open && <View>{children}</View>}`), not just visibility-hidden. State inside children is lost; stateful side effects (MediaPlayer instances, JS intervals) need explicit cleanup in their unmount path. System-level effects (`Vibration`) survive unmount since they're owned by the OS.
+- **Home "This Week" strip** (`CurrentWeekStrip.tsx`): current ISO week Mon–Sun, tinted by `planColor` of the plan trained that day (✓ logged · quiet dot = active plan schedules it but nothing logged · ink ring = today). Its progress bar counts **scheduled training days only** — putting rest days in the denominator means a Mon–Fri plan can never read 100%. Scheduled weekdays come from the active plan's `plan_days.weekday_label`, the *recurring* schedule, because `weeks` rows are **not** calendar-anchored (a week row can be months old); a plan without labels yields no dots and no bar.
+- **Home heatmap** (`HeatmapCard.tsx`): 16w × 7d grid with the weekday letters on the left axis (no text fits in a ~15px cell), cells tinted `planColor(planId).bg` for one session that day / `.fg` for two or more, legend below naming the plans present in the window. `cellSize` must subtract *every* horizontal chrome item (`HORIZONTAL_CHROME`, `AXIS_WIDTH`, `AXIS_GAP`, inter-cell gaps) — the card has no `overflow: hidden`, so a forgotten term makes the grid poke past its border at some widths.
 - **Statistics chart** (`src/screens/Statistics.tsx`): `victory-native`'s `CartesianChart` crashes when any value in a `yKey`'d column is `null` — it can't compute a domain from nulls; only feed it non-null points. `fetchExerciseStats` returns `max_weight: null` for bodyweight exercises (reps but no weight); the screen charts the `max_weight` series when present and falls back to the `max_reps` series otherwise (`metric` state switches the y-axis suffix kg/reps).
 
 ### Global TypeScript types
@@ -187,11 +189,15 @@ Per-plan colour identity comes from `planColor(planId)` (palette in `src/common/
 
 `navigation.navigate('Sessions', {screen: <name>, params})` only works when `<name>` exists as a `SubTab.Screen` in the Sessions top-tab navigator, and those screens are generated from the **currently active plan's** `plan_days`. Navigating to a session of a different plan via this form silently no-ops the params → `Session.tsx` falls back to "newest week of active plan". For cross-plan / historical session access, render `SessionScreen` directly in a `<Modal>` with `weekID` + `day_index` props (see `Weeks.tsx`'s session-detail modal).
 
+Build the route name from `plan_days` — the same source `Routes.tsx` names the screens from — never from a session row's `session_name`/`weekday_label`. `createWeek` snapshots those at week creation, so a `SEED_REVISION` bump that rewrites `plan_days` leaves already-created weeks holding stale copies that name a screen which no longer exists, and `navigate()` no-ops silently. See `Home.tsx`'s `sessionRouteLabel`.
+
 ## TypeScript errors
 
 Treat TS errors on imports from third-party libraries as **real contracts**, not pre-existing noise. TS1192 "no default export" on `@dr.pogodin/react-native-fs` was a real runtime bug (`undefined.copyFile`), not a config quirk. Check the library's actual export shape before dismissing as noise.
 
 That said, `tsc --noEmit` is **not clean** on this repo. Known pre-existing noise: victory-native `CartesianChart` generics in `Statistics.tsx` (data/xKey/yKeys/points errors — the chart works at runtime), `Routes.tsx` screen-component typings, everything in the dead `useFetchData.tsx`, and all of `__tests__/` (no jest types in tsconfig). To check whether a change introduces NEW errors, diff the error list against HEAD: `git worktree add --detach /tmp/ww-head HEAD`, symlink `node_modules` into it, run tsc in both, compare. Don't run bare `git stash` to get a baseline — and remember to run tsc from the repo root, not the worktree, for the "after" list.
+
+To check a single file, scope the grep by **path** (`tsc --noEmit 2>&1 | grep 'HeatmapCard.tsx'`), not by bare symbol name: a bare name also matches error *messages* that mention the type (a broken `Home.tsx` reports "HeatmapCard"), and `grep heatmapMath` sweeps in `__tests__/heatmapMath.test.ts`'s jest-types noise. Before trusting a "clean" result, prove the pattern can fail — append a throwaway `const x: number = 'y'`, confirm the grep catches it, revert.
 
 ## Code style
 
