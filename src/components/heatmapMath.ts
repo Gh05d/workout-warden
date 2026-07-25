@@ -71,3 +71,43 @@ export function daysInLast(
   }
   return count;
 }
+
+/** Weekday initials, Monday-first — index 0 aligns with `startOfWeek` (Monday)
+ * and with `HeatmapCard`'s grid rows. */
+export const WEEKDAY_LABELS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+
+export interface WeekDayCell {
+  key: string; // isoDate of the day
+  label: string; // WEEKDAY_LABELS[i]
+  isToday: boolean;
+  isFuture: boolean;
+  trained: boolean;
+  planId: number | null; // dominant plan trained that day, else null
+}
+
+/** The seven cells (Mon..Sun) of the ISO week containing `today`, resolved
+ * against the heatmap `data` map. Structurally typed on the map value so it
+ * stays decoupled from databaseService's HeatmapDatum. */
+export function currentWeekCells(
+  data: Map<string, {planId: number}>,
+  today: Date,
+): WeekDayCell[] {
+  const monday = startOfWeek(today);
+  const todayKey = isoDate(today);
+  const cells: WeekDayCell[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const key = isoDate(d);
+    const datum = data.get(key);
+    cells.push({
+      key,
+      label: WEEKDAY_LABELS[i],
+      isToday: key === todayKey,
+      isFuture: d > today,
+      trained: !!datum,
+      planId: datum ? datum.planId : null,
+    });
+  }
+  return cells;
+}

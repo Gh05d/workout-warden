@@ -1,4 +1,6 @@
 import {
+  WEEKDAY_LABELS,
+  currentWeekCells,
   currentWeekStreak,
   daysInLast,
   isoDate,
@@ -134,5 +136,48 @@ describe('daysInLast', () => {
     expect(
       daysInLast(7, set('2026-05-14', '2026-05-13', '2026-05-20'), today),
     ).toBe(2);
+  });
+});
+
+describe('currentWeekCells', () => {
+  // 2026-07-22 is a Wednesday; its ISO week runs Mon 2026-07-20 .. Sun 2026-07-26.
+  const wednesday = new Date(2026, 6, 22);
+
+  it('returns 7 cells labeled MO..SU', () => {
+    const cells = currentWeekCells(new Map(), wednesday);
+    expect(cells.map(c => c.label)).toEqual([...WEEKDAY_LABELS]);
+    expect(cells).toHaveLength(7);
+  });
+
+  it('marks today and future days relative to today', () => {
+    const cells = currentWeekCells(new Map(), wednesday);
+    // MO,TU past; WE today; TH,FR,SA,SU future.
+    expect(cells.map(c => c.isToday)).toEqual([
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    expect(cells.map(c => c.isFuture)).toEqual([
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+    ]);
+  });
+
+  it('resolves trained days and their plan from the data map', () => {
+    const data = new Map([['2026-07-20', {planId: 3, count: 1}]]);
+    const cells = currentWeekCells(data, wednesday);
+    expect(cells[0].trained).toBe(true);
+    expect(cells[0].planId).toBe(3);
+    expect(cells[1].trained).toBe(false);
+    expect(cells[1].planId).toBeNull();
   });
 });
