@@ -42,10 +42,11 @@ instead, because no legible glyph fits a 15px cell.
 - **Query:** join `sessions → weeks`, group by `DATE(..., 'localtime'), plan_id`,
   returning `(date, plan_id, sessions)` rows.
 - **Dominant-plan fold (JS):** a day can hold sessions from more than one plan.
-  Per date, pick the plan with the most sessions that day; tie → the plan with
-  the higher `plan_id` is arbitrary, so break ties toward the active plan when
-  it is one of the tied plans, else lowest `plan_id`. `count` is the summed
-  session count across all plans that day (drives the heatmap intensity).
+  Per date, pick the plan with the most sessions that day; tie → lowest
+  `plan_id` (deterministic; multi-plan-same-day is rare, and the active plan
+  already dominates the strip via the current week). `count` is the summed
+  session count across all plans that day (drives the heatmap intensity). This
+  keeps `fetchHeatmapData`'s signature unchanged — no `activePlanId` param.
 - **No schema change** — `plan_id` is derivable via the existing FK path
   `sessions.week_id → weeks.plan_id`.
 
