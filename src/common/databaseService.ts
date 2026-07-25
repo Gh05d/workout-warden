@@ -785,27 +785,60 @@ export async function fetchExerciseStats(
   return res.rows.raw();
 }
 
-/** Heatmap source: count of trained sessions per LOCAL day, from `fromLocalDate`
- * (YYYY-MM-DD) onward. Plan-agnostic — every plan's sessions contribute. Uses
- * SQLite's `'localtime'` modifier so the bucket boundary matches the device,
- * not UTC; `today` would otherwise drift by ±1 day for users near midnight. */
+export interface HeatmapDatum {
+  count: number;
+  planId: number;
+}
+
+/** Heatmap source: per LOCAL day, the total trained-session count and the
+ * dominant plan (the plan with the most sessions that day; ties broken by the
+ * lowest plan_id). Rows are grouped by (date, plan_id) in SQL, then folded in
+ * JS so each day resolves to one {count, planId}. Uses SQLite's `'localtime'`
+ * modifier so the bucket boundary matches the device, not UTC; `today` would
+ * otherwise drift by ±1 day for users near midnight. */
 export async function fetchHeatmapData(
   db: SQLiteDatabase,
   fromLocalDate: string,
-): Promise<Map<string, number>> {
+): Promise<Map<string, HeatmapDatum>> {
   const [res] = await db.executeSql(
-    `SELECT DATE(s.trained_at, 'localtime') AS date, COUNT(*) AS sessions
+    `SELECT DATE(s.trained_at, 'localtime') AS date,
+            w.plan_id AS plan_id,
+            COUNT(*) AS sessions
      FROM sessions s
+     JOIN weeks w ON s.week_id = w.id
      WHERE s.trained_at IS NOT NULL
        AND DATE(s.trained_at, 'localtime') >= ?
-     GROUP BY DATE(s.trained_at, 'localtime')
+     GROUP BY DATE(s.trained_at, 'localtime'), w.plan_id
      ORDER BY date ASC`,
     [fromLocalDate],
   );
-  const map = new Map<string, number>();
+  // Fold (date, plan_id, sessions) rows into one datum per date: total count
+  // across plans, plus the dominant plan (max sessions; tie → lowest plan_id).
+  const acc = new Map<
+    string,
+    {count: number; planId: number; bestSessions: number}
+  >();
   for (const row of res.rows.raw()) {
-    map.set(row.date, row.sessions);
+    const date = row.date as string;
+    const planId = row.plan_id as number;
+    const sessions = row.sessions as number;
+    const cur = acc.get(date);
+    if (!cur) {
+      acc.set(date, {count: sessions, planId, bestSessions: sessions});
+    } else {
+      cur.count += sessions;
+      if (
+        sessions > cur.bestSessions ||
+        (sessions === cur.bestSessions && planId < cur.planId)
+      ) {
+        cur.planId = planId;
+        cur.bestSessions = sessions;
+      }
+    }
   }
+  const map = new Map<string, HeatmapDatum>();
+  for (const [date, v] of acc)
+    map.set(date, {count: v.count, planId: v.planId});
   return map;
 }
 
