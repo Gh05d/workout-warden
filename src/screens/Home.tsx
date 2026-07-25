@@ -40,7 +40,7 @@ import {
   initDB,
   setActivePlanId,
 } from '../common/databaseService';
-import type {BaseProps, Plan, Session, Week} from '../common/types';
+import type {BaseProps, Plan, PlanDay, Session, Week} from '../common/types';
 import type {
   HomeSummary as HomeSummaryShape,
   HeatmapDatum,
@@ -54,9 +54,9 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
   const [heatmap, setHeatmap] = React.useState<Map<string, HeatmapDatum>>(
     new Map(),
   );
-  const [scheduledWeekdays, setScheduledWeekdays] = React.useState<
-    ReadonlySet<number>
-  >(new Set());
+  // The active plan's weekly schedule. Drives the strip's training-vs-rest-day
+  // marks and — critically — the Sessions route name (see sessionRouteLabel).
+  const [planDays, setPlanDays] = React.useState<PlanDay[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
   const [modalVisible, setModalVisible] = React.useState(false);
@@ -87,18 +87,21 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
         fetchHeatmapData(db2, fromKey),
       ]);
     }
-    // The active plan's weekly schedule drives the strip's training-vs-rest-day
-    // distinction. plan_days is the right source: it's the *recurring* weekly
-    // schedule, which maps onto any calendar week, whereas `weeks` rows are not
-    // calendar-anchored. Plans may omit weekday labels entirely (Strength does)
-    // — then the set is empty and no day is marked as scheduled.
+    // plan_days is the *recurring* weekly schedule, which maps onto any calendar
+    // week — unlike `weeks` rows, which are not calendar-anchored. A plan may
+    // omit weekday labels, in which case no day is marked as scheduled.
     const days = s ? await fetchPlanDays(db, s.activePlan.id) : [];
 
     setSummary(s);
     setPlans(p);
     setHeatmap(h);
-    setScheduledWeekdays(weekdaySetFromLabels(days.map(d => d.weekday_label)));
+    setPlanDays(days);
   }, []);
+
+  const scheduledWeekdays = React.useMemo(
+    () => weekdaySetFromLabels(planDays.map(d => d.weekday_label)),
+    [planDays],
+  );
 
   useFocusEffect(
     React.useCallback(() => {
@@ -142,10 +145,29 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
     }
   }
 
-  function handleStartSession(session: Session, week: Week) {
-    const label = session.weekday_label
+  /** Route name of a session's screen in the Sessions top-tab navigator.
+   *
+   * Must be derived from plan_days, because that's what Routes.tsx names the
+   * SubTab.Screens from. A session row carries its own copy of session_name /
+   * weekday_label, taken when the week was created — if the plan gained or
+   * changed a weekday label since (a SEED_REVISION bump rewrites plan_days),
+   * the copy is stale and would name a screen that no longer exists, which
+   * navigate() silently no-ops. Falls back to the copy when the day is gone
+   * from the plan entirely. */
+  function sessionRouteLabel(session: Session): string {
+    const day = planDays.find(d => d.day_index === session.day_index);
+    if (day) {
+      return day.weekday_label
+        ? `${day.session_template_name}: ${day.weekday_label}`
+        : day.session_template_name;
+    }
+    return session.weekday_label
       ? `${session.session_name}: ${session.weekday_label}`
       : session.session_name;
+  }
+
+  function handleStartSession(session: Session, week: Week) {
+    const label = sessionRouteLabel(session);
     navigation.navigate('Sessions', {
       screen: label,
       params: {weekID: week.id, day_index: session.day_index, title: label},

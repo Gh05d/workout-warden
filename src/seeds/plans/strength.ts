@@ -72,10 +72,10 @@ export const STRENGTH: PlanSeed = {
     },
   ],
   days: [
-    {day_index: 1, session_template_slug: 'strength-reverse-step-up-leg-day'},
-    {day_index: 2, session_template_slug: 'strength-chest-pressing-upper-body-day'},
-    {day_index: 3, session_template_slug: 'strength-mobility-day'},
-    {day_index: 4, session_template_slug: 'strength-split-squat-leg-day'},
-    {day_index: 5, session_template_slug: 'strength-shoulder-pressing-upper-body-day'},
+    {day_index: 1, weekday_label: 'Mon', session_template_slug: 'strength-reverse-step-up-leg-day'},
+    {day_index: 2, weekday_label: 'Tue', session_template_slug: 'strength-chest-pressing-upper-body-day'},
+    {day_index: 3, weekday_label: 'Wed', session_template_slug: 'strength-mobility-day'},
+    {day_index: 4, weekday_label: 'Thu', session_template_slug: 'strength-split-squat-leg-day'},
+    {day_index: 5, weekday_label: 'Fri', session_template_slug: 'strength-shoulder-pressing-upper-body-day'},
   ],
 };

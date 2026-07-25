@@ -72,6 +72,19 @@ function storedRows(templateSlug: string) {
     .all(templateSlug) as Record<string, unknown>[];
 }
 
+/** weekday_label stored for a plan's days, by day_index. */
+function storedWeekdayLabels(planSlug: string) {
+  return mockRaw
+    .prepare(
+      `SELECT pd.day_index, pd.weekday_label
+         FROM plan_days pd
+         JOIN plans p ON p.id = pd.plan_id
+        WHERE p.slug = ?
+        ORDER BY pd.day_index`,
+    )
+    .all(planSlug) as {day_index: number; weekday_label: string | null}[];
+}
+
 function revision(): number {
   const row = mockRaw
     .prepare(`SELECT value FROM settings WHERE key = 'seed_revision'`)
@@ -132,6 +145,32 @@ describe('seed revision migration', () => {
 
     expect(storedRows('surf2-strength-thu')).toEqual(expected);
     expect(revision()).toBe(SEED_REVISION);
+  });
+
+  it('restores stale plan_days weekday labels when the revision is behind', async () => {
+    // The Home strip derives training-vs-rest days from plan_days.weekday_label,
+    // and Routes names the Sessions tabs from it — so a device seeded before a
+    // plan gained labels must pick them up on the revision bump, not stay NULL.
+    await initDB();
+    const expected = storedWeekdayLabels('strength');
+    // Guard against a vacuous pass: if the plan carried no labels at all, the
+    // NULL-out below would be a no-op and this test would prove nothing.
+    expect(expected.length).toBeGreaterThan(0);
+    expect(expected.every(d => !!d.weekday_label)).toBe(true);
+
+    mockRaw
+      .prepare(
+        `UPDATE plan_days SET weekday_label = NULL
+          WHERE plan_id = (SELECT id FROM plans WHERE slug = 'strength')`,
+      )
+      .run();
+    mockRaw
+      .prepare(`UPDATE settings SET value = '1' WHERE key = 'seed_revision'`)
+      .run();
+
+    await initDB();
+
+    expect(storedWeekdayLabels('strength')).toEqual(expected);
   });
 
   it('leaves recorded training data untouched during a refresh', async () => {

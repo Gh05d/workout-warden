@@ -17,6 +17,11 @@ export const PLANS: readonly PlanSeed[] = [SURF, SURF2, STRENGTH];
 //
 // Not needed for exercise name/video/description — those upsert on every start.
 //
+// Also needed when a plan's `days` change — the day→template mapping and
+// `weekday_label` are rewritten on a bump too.
+//
 // 1 = initial v2 schema · 2 = Surf 2.0 corrections (mobility spread, single-leg
-//     RDL instead of Nordic, execution hints)
-export const SEED_REVISION = 2;
+//     RDL instead of Nordic, execution hints) · 3 = Strength gains Mon–Fri
+//     weekday labels, so the Home strip can tell its training days from rest
+//     days (Surf/Surf 2 already had them)
+export const SEED_REVISION = 3;
