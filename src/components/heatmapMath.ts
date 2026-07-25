@@ -74,7 +74,47 @@ export function daysInLast(
 
 /** Weekday initials, Monday-first — index 0 aligns with `startOfWeek` (Monday)
  * and with `HeatmapCard`'s grid rows. */
-export const WEEKDAY_LABELS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+export const WEEKDAY_LABELS: readonly string[] = [
+  'MO',
+  'TU',
+  'WE',
+  'TH',
+  'FR',
+  'SA',
+  'SU',
+];
+
+// Two-letter prefixes are unique across the seven English weekday names, so a
+// single table resolves 'Mon', 'Monday', 'MO' and 'monday' alike. Index 0 is
+// Monday, matching WEEKDAY_LABELS and startOfWeek.
+const WEEKDAY_PREFIXES = ['mo', 'tu', 'we', 'th', 'fr', 'sa', 'su'];
+
+/** Monday-first index (0..6) for a plan_days/session `weekday_label`, or null
+ * when the label is missing or unrecognised. Plans are free to omit weekday
+ * labels entirely (the Strength plan does), so null is an expected result, not
+ * an error. */
+export function weekdayIndexFromLabel(
+  label: string | null | undefined,
+): number | null {
+  if (!label) return null;
+  const key = label.trim().toLowerCase().slice(0, 2);
+  const idx = WEEKDAY_PREFIXES.indexOf(key);
+  return idx === -1 ? null : idx;
+}
+
+/** The set of Monday-first weekday indices a plan schedules training on, from
+ * its `plan_days.weekday_label` values. Unrecognised/absent labels are dropped,
+ * so a plan without labels yields an empty set (= "schedule unknown"). */
+export function weekdaySetFromLabels(
+  labels: ReadonlyArray<string | null | undefined>,
+): Set<number> {
+  const days = new Set<number>();
+  for (const label of labels) {
+    const idx = weekdayIndexFromLabel(label);
+    if (idx != null) days.add(idx);
+  }
+  return days;
+}
 
 export interface WeekDayCell {
   key: string; // isoDate of the day
@@ -83,14 +123,21 @@ export interface WeekDayCell {
   isFuture: boolean;
   trained: boolean;
   planId: number | null; // dominant plan trained that day, else null
+  scheduled: boolean; // the active plan schedules training on this weekday
 }
 
 /** The seven cells (Mon..Sun) of the ISO week containing `today`, resolved
  * against the heatmap `data` map. Structurally typed on the map value so it
- * stays decoupled from databaseService's HeatmapDatum. */
+ * stays decoupled from databaseService's HeatmapDatum.
+ *
+ * `scheduledWeekdays` (Monday-first indices, see `weekdaySetFromLabels`) marks
+ * which weekdays the active plan trains on; omit it — or pass an empty set —
+ * when the plan carries no weekday labels, and every day reports
+ * `scheduled: false`. */
 export function currentWeekCells(
   data: Map<string, {planId: number}>,
   today: Date,
+  scheduledWeekdays?: ReadonlySet<number>,
 ): WeekDayCell[] {
   const monday = startOfWeek(today);
   const todayKey = isoDate(today);
@@ -107,6 +154,7 @@ export function currentWeekCells(
       isFuture: d > today,
       trained: !!datum,
       planId: datum ? datum.planId : null,
+      scheduled: scheduledWeekdays ? scheduledWeekdays.has(i) : false,
     });
   }
   return cells;

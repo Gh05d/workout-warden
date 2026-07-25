@@ -2,8 +2,11 @@
 //
 // Home-screen "This Week" strip: the current ISO week (Mon–Sun) as seven large
 // boxes, each showing the weekday initial, tinted by the plan trained that day
-// (done shows a check, today gets an ink ring). Reads the same map as the
-// heatmap below it; it is the heatmap's newest column, rotated and labeled.
+// (done shows a check, today gets an ink ring). Days the active plan schedules
+// but that hold no log yet get a quiet dot; unscheduled days recede as rest
+// days. A run track under the boxes joins consecutive trained days, so a streak
+// reads as one continuous bar. Reads the same map as the heatmap below it; it
+// is the heatmap's newest column, rotated and labeled.
 
 import React from 'react';
 import {StyleSheet, View} from 'react-native';
@@ -17,14 +20,32 @@ import type {HeatmapDatum} from '../common/databaseService';
 interface Props {
   data: Map<string, HeatmapDatum>;
   weekProgress: {done: number; total: number} | null;
+  /** Monday-first weekday indices the active plan trains on. Empty when the
+   * plan carries no weekday labels — then no day is marked as scheduled. */
+  scheduledWeekdays: ReadonlySet<number>;
+  /** Tints the scheduled-day dot with the active plan's identity colour. */
+  activePlanId: number | null;
 }
 
-const CurrentWeekStrip: React.FC<Props> = ({data, weekProgress}) => {
+// Must match `styles.row`'s gap: the run track's connectors span exactly the
+// gaps between the day boxes, which is what makes a run look continuous.
+const CELL_GAP = 4;
+
+const CurrentWeekStrip: React.FC<Props> = ({
+  data,
+  weekProgress,
+  scheduledWeekdays,
+  activePlanId,
+}) => {
   const today = React.useMemo(() => new Date(), []);
   const cells = React.useMemo(
-    () => currentWeekCells(data, today),
-    [data, today],
+    () => currentWeekCells(data, today, scheduledWeekdays),
+    [data, today, scheduledWeekdays],
   );
+
+  const dotColor =
+    activePlanId != null ? planColor(activePlanId).fg : colors.faint;
+  const anyTrained = cells.some(cell => cell.trained);
 
   return (
     <View style={styles.card}>
@@ -39,31 +60,79 @@ const CurrentWeekStrip: React.FC<Props> = ({data, weekProgress}) => {
         )}
       </View>
 
-      <View style={styles.row}>
-        {cells.map(cell => {
-          const c = cell.planId != null ? planColor(cell.planId) : null;
-          return (
-            <View
-              key={cell.key}
-              style={[
-                styles.cell,
-                c
-                  ? {backgroundColor: c.bg, borderColor: c.fg}
-                  : styles.cellEmpty,
-                cell.isToday && styles.cellToday,
-              ]}>
-              {!!c && <View style={[styles.rail, {backgroundColor: c.fg}]} />}
-              <AppText
-                bold
-                style={[styles.dayLabel, {color: c ? c.fg : colors.faint}]}>
-                {cell.label}
-              </AppText>
-              <AppText style={[styles.mark, {color: c ? c.fg : 'transparent'}]}>
-                {cell.trained ? '✓' : ' '}
-              </AppText>
-            </View>
-          );
-        })}
+      <View style={styles.weekBlock}>
+        <View style={styles.row}>
+          {cells.map(cell => {
+            const c = cell.planId != null ? planColor(cell.planId) : null;
+            // Three tiers of emphasis: trained (plan colour) > scheduled but
+            // unlogged (muted) > rest day (recedes).
+            const labelColor = c
+              ? c.fg
+              : cell.scheduled
+                ? colors.muted
+                : colors.ghost;
+            const mark = cell.trained ? '✓' : cell.scheduled ? '•' : ' ';
+            const markColor = c
+              ? c.fg
+              : cell.scheduled
+                ? dotColor
+                : 'transparent';
+            return (
+              <View
+                key={cell.key}
+                style={[
+                  styles.cell,
+                  c
+                    ? {backgroundColor: c.bg, borderColor: c.fg}
+                    : styles.cellEmpty,
+                  cell.isToday && styles.cellToday,
+                ]}>
+                {!!c && <View style={[styles.rail, {backgroundColor: c.fg}]} />}
+                <AppText bold style={[styles.dayLabel, {color: labelColor}]}>
+                  {cell.label}
+                </AppText>
+                <AppText style={[styles.mark, {color: markColor}]}>
+                  {mark}
+                </AppText>
+              </View>
+            );
+          })}
+        </View>
+
+        {anyTrained && (
+          <View style={styles.track}>
+            {cells.map((cell, i) => {
+              const prev = i > 0 ? cells[i - 1] : null;
+              // A connector fills only between two trained days, taking the
+              // left day's plan colour when the two plans differ.
+              const joined = !!prev && prev.trained && cell.trained;
+              return (
+                <React.Fragment key={cell.key}>
+                  {i > 0 && (
+                    <View
+                      style={[
+                        styles.trackConnector,
+                        joined &&
+                          prev.planId != null && {
+                            backgroundColor: planColor(prev.planId).fg,
+                          },
+                      ]}
+                    />
+                  )}
+                  <View
+                    style={[
+                      styles.trackSegment,
+                      cell.trained &&
+                        cell.planId != null && {
+                          backgroundColor: planColor(cell.planId).fg,
+                        },
+                    ]}
+                  />
+                </React.Fragment>
+              );
+            })}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -89,7 +158,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     fontVariant: ['tabular-nums'],
   },
-  row: {flexDirection: 'row', gap: 4},
+  // Keeps the run track tucked right under the boxes it annotates, instead of
+  // a full card-gap away.
+  weekBlock: {gap: 6},
+  row: {flexDirection: 'row', gap: CELL_GAP},
   cell: {
     flex: 1,
     aspectRatio: 1,
@@ -103,6 +175,11 @@ const styles = StyleSheet.create({
   rail: {position: 'absolute', left: 0, top: 0, bottom: 0, width: 3},
   dayLabel: {fontSize: 12, letterSpacing: 1},
   mark: {fontSize: 12, lineHeight: 14, marginTop: 1},
+  // No gap here: the fixed-width connectors ARE the gaps, so segments align
+  // with the day boxes above them.
+  track: {flexDirection: 'row', height: 3},
+  trackSegment: {flex: 1, backgroundColor: 'transparent'},
+  trackConnector: {width: CELL_GAP, backgroundColor: 'transparent'},
 });
 
 export default CurrentWeekStrip;

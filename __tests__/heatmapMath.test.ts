@@ -5,6 +5,8 @@ import {
   daysInLast,
   isoDate,
   startOfWeek,
+  weekdayIndexFromLabel,
+  weekdaySetFromLabels,
 } from '../src/components/heatmapMath';
 
 // Helper: build a Set from YYYY-MM-DD strings.
@@ -179,5 +181,89 @@ describe('currentWeekCells', () => {
     expect(cells[0].planId).toBe(3);
     expect(cells[1].trained).toBe(false);
     expect(cells[1].planId).toBeNull();
+  });
+
+  it('leaves every day unscheduled when no schedule is given', () => {
+    const cells = currentWeekCells(new Map(), wednesday);
+    expect(cells.map(c => c.scheduled)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+  });
+
+  it('flags scheduled weekdays from the given index set', () => {
+    // Mon..Fri scheduled, weekend free — the Surf plans' shape.
+    const cells = currentWeekCells(
+      new Map(),
+      wednesday,
+      new Set([0, 1, 2, 3, 4]),
+    );
+    expect(cells.map(c => c.scheduled)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      false,
+    ]);
+  });
+
+  it('reports a day as both trained and scheduled when it is both', () => {
+    const data = new Map([['2026-07-20', {planId: 1, count: 1}]]);
+    const cells = currentWeekCells(data, wednesday, new Set([0, 1]));
+    expect(cells[0].trained).toBe(true);
+    expect(cells[0].scheduled).toBe(true);
+    // Tuesday is scheduled but not trained — the "quiet dot" case.
+    expect(cells[1].trained).toBe(false);
+    expect(cells[1].scheduled).toBe(true);
+  });
+});
+
+describe('weekdayIndexFromLabel', () => {
+  it('maps three-letter labels to Monday-first indices', () => {
+    expect(weekdayIndexFromLabel('Mon')).toBe(0);
+    expect(weekdayIndexFromLabel('Tue')).toBe(1);
+    expect(weekdayIndexFromLabel('Wed')).toBe(2);
+    expect(weekdayIndexFromLabel('Thu')).toBe(3);
+    expect(weekdayIndexFromLabel('Fri')).toBe(4);
+    expect(weekdayIndexFromLabel('Sat')).toBe(5);
+    expect(weekdayIndexFromLabel('Sun')).toBe(6);
+  });
+
+  it('accepts full names, two-letter forms and mixed case', () => {
+    expect(weekdayIndexFromLabel('Monday')).toBe(0);
+    expect(weekdayIndexFromLabel('SUNDAY')).toBe(6);
+    expect(weekdayIndexFromLabel('mo')).toBe(0);
+    expect(weekdayIndexFromLabel('SU')).toBe(6);
+    expect(weekdayIndexFromLabel('  thu  ')).toBe(3);
+  });
+
+  it('returns null for missing or unrecognised labels', () => {
+    expect(weekdayIndexFromLabel(null)).toBeNull();
+    expect(weekdayIndexFromLabel(undefined)).toBeNull();
+    expect(weekdayIndexFromLabel('')).toBeNull();
+    expect(weekdayIndexFromLabel('Day 1')).toBeNull();
+  });
+});
+
+describe('weekdaySetFromLabels', () => {
+  it('collects recognised labels and drops the rest', () => {
+    const s = weekdaySetFromLabels(['Mon', 'Wed', null, 'garbage', 'Fri']);
+    expect([...s].sort()).toEqual([0, 2, 4]);
+  });
+
+  it('returns an empty set for a plan without weekday labels', () => {
+    // The Strength plan's plan_days carry no weekday_label at all.
+    expect(weekdaySetFromLabels([null, null, null, null]).size).toBe(0);
+  });
+
+  it('de-duplicates repeated weekdays', () => {
+    expect([...weekdaySetFromLabels(['Mon', 'Monday', 'MO'])]).toEqual([0]);
   });
 });

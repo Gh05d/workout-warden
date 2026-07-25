@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
   legend: {flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4},
   legendItem: {flexDirection: 'row', alignItems: 'center', gap: 6},
   legendSwatch: {width: 12, height: 12},
-  legendText: {fontSize: 10, color: colors.muted, letterSpacing: 1},
+  legendText: {fontSize: 10, color: colors.muted, letterSpacing: 1.4},
 });
 
 export default HeatmapCard;

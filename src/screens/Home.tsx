@@ -21,7 +21,11 @@ import TacticalButton from '../components/TacticalButton';
 import Toast from '../components/Toast';
 import VibeCard from '../components/VibeCard';
 
-import {isoDate, startOfWeek} from '../components/heatmapMath';
+import {
+  isoDate,
+  startOfWeek,
+  weekdaySetFromLabels,
+} from '../components/heatmapMath';
 
 import {colors} from '../common/theme';
 import {
@@ -29,6 +33,7 @@ import {
   exportDatabase,
   fetchHeatmapData,
   fetchHomeSummary,
+  fetchPlanDays,
   fetchPlans,
   getDBConnection,
   importDatabase,
@@ -49,6 +54,9 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
   const [heatmap, setHeatmap] = React.useState<Map<string, HeatmapDatum>>(
     new Map(),
   );
+  const [scheduledWeekdays, setScheduledWeekdays] = React.useState<
+    ReadonlySet<number>
+  >(new Set());
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
   const [modalVisible, setModalVisible] = React.useState(false);
@@ -79,9 +87,17 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
         fetchHeatmapData(db2, fromKey),
       ]);
     }
+    // The active plan's weekly schedule drives the strip's training-vs-rest-day
+    // distinction. plan_days is the right source: it's the *recurring* weekly
+    // schedule, which maps onto any calendar week, whereas `weeks` rows are not
+    // calendar-anchored. Plans may omit weekday labels entirely (Strength does)
+    // — then the set is empty and no day is marked as scheduled.
+    const days = s ? await fetchPlanDays(db, s.activePlan.id) : [];
+
     setSummary(s);
     setPlans(p);
     setHeatmap(h);
+    setScheduledWeekdays(weekdaySetFromLabels(days.map(d => d.weekday_label)));
   }, []);
 
   useFocusEffect(
@@ -191,6 +207,8 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
 
             <CurrentWeekStrip
               data={heatmap}
+              scheduledWeekdays={scheduledWeekdays}
+              activePlanId={summary.activePlan.id}
               weekProgress={
                 summary.currentWeek
                   ? {
