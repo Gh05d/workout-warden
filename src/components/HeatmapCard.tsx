@@ -39,6 +39,7 @@ const HORIZONTAL_CHROME = (16 + 16) * 2;
 // only used here.
 const CELL_EMPTY = '#EDEAE4';
 const AXIS_WIDTH = 20;
+const AXIS_GAP = 6; // horizontal gap between the weekday axis and the grid
 
 // A trained cell is tinted by its dominant plan: the pastel `bg` for a single
 // session, the saturated `fg` for two or more.
@@ -62,7 +63,11 @@ const HeatmapCard: React.FC<Props> = ({data, plans}) => {
   const cellSize = Math.max(
     8,
     Math.floor(
-      (width - HORIZONTAL_CHROME - AXIS_WIDTH - GAP * (WEEKS_SHOWN - 1)) /
+      (width -
+        HORIZONTAL_CHROME -
+        AXIS_WIDTH -
+        AXIS_GAP -
+        GAP * (WEEKS_SHOWN - 1)) /
         WEEKS_SHOWN,
     ),
   );
@@ -135,6 +140,10 @@ const HeatmapCard: React.FC<Props> = ({data, plans}) => {
                 const datum = data.get(key);
                 const isToday = key === todayKey;
                 const isFuture = date > today;
+                // Stagger left-to-right (oldest → today) with a small per-day
+                // offset so the grid "fills up" toward the current week.
+                // ~25ms per column + ~3ms per row → ~395ms total stagger over
+                // 16 weeks × 7 days. Cell fade itself is 280ms.
                 const delay = weekIdx * 25 + rowIdx * 3;
                 return (
                   <Reanimated.View
@@ -225,7 +234,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.ink,
   },
-  gridWrap: {flexDirection: 'row', gap: 6},
+  gridWrap: {flexDirection: 'row', gap: AXIS_GAP},
   axis: {width: AXIS_WIDTH},
   axisLabel: {
     fontSize: 8,
