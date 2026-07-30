@@ -106,7 +106,7 @@ const SessionsTabs: React.FC<BaseProps> = ({route}) => {
   );
 };
 
-const Routes: React.FC<{puppy: string}> = ({puppy}) => {
+const Routes: React.FC = () => {
   const AppTheme: Theme = {
     ...DefaultTheme,
     colors: {
@@ -157,7 +157,6 @@ const Routes: React.FC<{puppy: string}> = ({puppy}) => {
         <Tab.Screen
           name="Home"
           component={HomeScreen}
-          initialParams={{puppy}}
           options={{tabBarIcon: renderTabBarIcon('home')}}
         />
         <Tab.Screen

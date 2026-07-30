@@ -1,10 +1,12 @@
 import {
   WEEKDAY_LABELS,
+  completedScheduledWeekdays,
   currentWeekCells,
   currentWeekStreak,
   daysInLast,
   isoDate,
   startOfWeek,
+  trainedAtLocalDay,
   weekdayIndexFromLabel,
   weekdaySetFromLabels,
 } from '../src/components/heatmapMath';
@@ -249,6 +251,127 @@ describe('weekdayIndexFromLabel', () => {
     expect(weekdayIndexFromLabel(undefined)).toBeNull();
     expect(weekdayIndexFromLabel('')).toBeNull();
     expect(weekdayIndexFromLabel('Day 1')).toBeNull();
+  });
+});
+
+describe('trainedAtLocalDay', () => {
+  it('treats bare SQLite datetimes as UTC, like DATE(..., "localtime")', () => {
+    // datetime('now') stores 'YYYY-MM-DD HH:MM:SS' with no zone marker.
+    expect(trainedAtLocalDay('2026-07-22 12:00:00')).toBe(
+      isoDate(new Date('2026-07-22T12:00:00Z')),
+    );
+  });
+
+  it('agrees with an explicit-zone ISO timestamp for the same instant', () => {
+    expect(trainedAtLocalDay('2026-07-22 21:59:00')).toBe(
+      trainedAtLocalDay('2026-07-22T21:59:00Z'),
+    );
+  });
+
+  it('accepts minute-precision legacy datetimes', () => {
+    // import-legacy fallback dates look like '2026-01-05 00:00'.
+    expect(trainedAtLocalDay('2026-01-05 12:00')).toBe(
+      isoDate(new Date('2026-01-05T12:00:00Z')),
+    );
+  });
+
+  it('returns null for unparseable input', () => {
+    expect(trainedAtLocalDay('not a date')).toBeNull();
+  });
+});
+
+describe('completedScheduledWeekdays', () => {
+  // 2026-07-22 is a Wednesday; its ISO week runs Mon 2026-07-20 .. Sun 2026-07-26.
+  const today = new Date(2026, 6, 22, 15);
+  // Midday-UTC timestamps keep the local calendar day equal to the UTC day for
+  // any test-runner timezone within ±11 h, like the local constructions above.
+  const at = (day: string) => `${day} 12:00:00`;
+
+  const planDays = [
+    {day_index: 1, weekday_label: 'Mon'},
+    {day_index: 2, weekday_label: 'Tue'},
+    {day_index: 3, weekday_label: 'Wed'},
+    {day_index: 4, weekday_label: 'Thu'},
+    {day_index: 5, weekday_label: 'Fri'},
+  ];
+
+  const session = (
+    day_index: number,
+    trained_at: string | null,
+    finished: 0 | 1 = 1,
+    weekday_label: string | null = null,
+  ) => ({day_index, weekday_label, trained_at, finished});
+
+  it('credits a finished session to its scheduled weekday, not the day it was trained', () => {
+    // Tuesday's plan finished on Wednesday → Tuesday gets the mark.
+    const s = completedScheduledWeekdays(
+      [session(2, at('2026-07-22'))],
+      planDays,
+      today,
+    );
+    expect([...s]).toEqual([1]);
+  });
+
+  it('credits a session trained ahead of schedule to its future weekday', () => {
+    // Friday's plan already done on Wednesday.
+    const s = completedScheduledWeekdays(
+      [session(5, at('2026-07-22'))],
+      planDays,
+      today,
+    );
+    expect([...s]).toEqual([4]);
+  });
+
+  it('collects every finished session of the week', () => {
+    const s = completedScheduledWeekdays(
+      [
+        session(1, at('2026-07-20')),
+        session(2, at('2026-07-22')),
+        session(5, at('2026-07-22')),
+      ],
+      planDays,
+      today,
+    );
+    expect([...s].sort()).toEqual([0, 1, 4]);
+  });
+
+  it('ignores unfinished sessions and sessions without a trained_at', () => {
+    const s = completedScheduledWeekdays(
+      [session(1, at('2026-07-20'), 0), session(2, null)],
+      planDays,
+      today,
+    );
+    expect(s.size).toBe(0);
+  });
+
+  it('ignores sessions trained outside the current ISO week', () => {
+    // The week row is not calendar-anchored: a session finished last week must
+    // not light up a fresh calendar week's strip.
+    const s = completedScheduledWeekdays(
+      [session(1, at('2026-07-15')), session(2, at('2026-07-29'))],
+      planDays,
+      today,
+    );
+    expect(s.size).toBe(0);
+  });
+
+  it("falls back to the session's own label when the plan no longer has its day", () => {
+    const s = completedScheduledWeekdays(
+      [session(9, at('2026-07-21'), 1, 'Sat')],
+      planDays,
+      today,
+    );
+    expect([...s]).toEqual([5]);
+  });
+
+  it('drops sessions whose day resolves to no weekday label', () => {
+    // The Strength plan's plan_days carry no labels at all.
+    const s = completedScheduledWeekdays(
+      [session(1, at('2026-07-20'))],
+      [{day_index: 1, weekday_label: null}],
+      today,
+    );
+    expect(s.size).toBe(0);
   });
 });
 

@@ -5,11 +5,11 @@ import {ImageBackground, StyleSheet, View} from 'react-native';
 import AppText from './AppText';
 import {DEMOTIVATIONAL_QUOTES} from '../common/quotes';
 
-interface Props {
-  puppy: string;
-}
+const PUPPY_TIMEOUT_MS = 5000;
 
-const VibeCard: React.FC<Props> = ({puppy}) => {
+const VibeCard: React.FC = () => {
+  const [puppy, setPuppy] = React.useState('');
+
   const quote = React.useMemo(
     () =>
       DEMOTIVATIONAL_QUOTES[
@@ -18,12 +18,45 @@ const VibeCard: React.FC<Props> = ({puppy}) => {
     [],
   );
 
+  // Purely decorative, fetched here — where the result renders — so a late
+  // resolution still shows the image. The state used to live in App and travel
+  // through Routes' initialParams, which an already-mounted Home never re-reads:
+  // any fetch that lost the race against the splash screen never showed at all.
+  // Bounded by its own timeout because fetch has none; a failure or abort just
+  // keeps the flat card.
+  React.useEffect(() => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PUPPY_TIMEOUT_MS);
+
+    fetch('https://dog.ceo/api/breeds/image/random', {
+      signal: controller.signal,
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data?.status === 'success') setPuppy(data.message);
+      })
+      .catch(() => {
+        /* offline, slow or aborted — the card simply stays flat */
+      })
+      .finally(() => clearTimeout(timeout));
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, []);
+
   if (!puppy) {
     return (
-      <View style={[styles.card, styles.cardFallback]}>
-        <AppText italic style={styles.quoteOnFlat}>
-          {quote}
-        </AppText>
+      <View style={styles.card}>
+        <View style={styles.content}>
+          <AppText style={styles.label} bold>
+            TODAY&apos;S VIBE
+          </AppText>
+          <AppText italic style={styles.quote}>
+            {`“${quote}”`}
+          </AppText>
+        </View>
       </View>
     );
   }
@@ -54,7 +87,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#111',
     justifyContent: 'flex-end',
   },
-  cardFallback: {padding: 16, height: undefined, justifyContent: 'center'},
   image: {resizeMode: 'cover'},
   scrim: {
     ...StyleSheet.absoluteFillObject,
@@ -77,7 +109,6 @@ const styles = StyleSheet.create({
     textShadowOffset: {width: 0, height: 1},
     textShadowRadius: 2,
   },
-  quoteOnFlat: {fontSize: 14, color: '#444', textAlign: 'center'},
 });
 
 export default VibeCard;

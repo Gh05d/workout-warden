@@ -116,6 +116,61 @@ export function weekdaySetFromLabels(
   return days;
 }
 
+/** Local calendar day (YYYY-MM-DD) of a `sessions.trained_at` value, or null
+ * when it doesn't parse. `finishSession` stamps trained_at via SQLite's
+ * `datetime('now')` — UTC with no zone marker — so a bare timestamp must be
+ * read as UTC before rendering the local day, matching the SQL side's
+ * `DATE(trained_at, 'localtime')`. Zone-suffixed ISO strings pass through. */
+export function trainedAtLocalDay(trainedAt: string): string | null {
+  let s = trainedAt.trim().replace(' ', 'T');
+  if (!s.includes('T')) s += 'T00:00:00';
+  if (!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(s)) s += 'Z';
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : isoDate(d);
+}
+
+interface SessionScheduleRef {
+  day_index: number;
+  weekday_label: string | null;
+  trained_at: string | null;
+  finished: number | boolean;
+}
+
+/** Monday-first weekday indices whose *scheduled* session is done: for every
+ * finished session trained within the ISO week containing `today`, the mark
+ * goes to the weekday the plan schedules that session on (via its day_index in
+ * `planDays`) — not the calendar day it happened to be trained. Tuesday's plan
+ * finished on Wednesday still checks off Tuesday; Friday's plan pre-trained on
+ * Thursday checks off Friday.
+ *
+ * The trained-this-week window matters because `weeks` rows are not calendar-
+ * anchored: a week row finished months ago must not light up a fresh calendar
+ * week. Like `sessionRouteLabel`, the session's own weekday_label copy is the
+ * fallback when its day is gone from the plan. */
+export function completedScheduledWeekdays(
+  sessions: ReadonlyArray<SessionScheduleRef>,
+  planDays: ReadonlyArray<{day_index: number; weekday_label: string | null}>,
+  today: Date,
+): Set<number> {
+  const monday = startOfWeek(today);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const fromKey = isoDate(monday);
+  const toKey = isoDate(sunday);
+
+  const done = new Set<number>();
+  for (const s of sessions) {
+    if (!s.finished || !s.trained_at) continue;
+    const day = trainedAtLocalDay(s.trained_at);
+    if (day == null || day < fromKey || day > toKey) continue;
+    const planDay = planDays.find(d => d.day_index === s.day_index);
+    const label = planDay ? planDay.weekday_label : s.weekday_label;
+    const idx = weekdayIndexFromLabel(label);
+    if (idx != null) done.add(idx);
+  }
+  return done;
+}
+
 export interface WeekDayCell {
   key: string; // isoDate of the day
   label: string; // WEEKDAY_LABELS[i]

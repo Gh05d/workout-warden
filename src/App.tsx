@@ -11,19 +11,17 @@ import {initDB} from './common/databaseService';
 
 SQLite.enablePromise(true);
 
-const PUPPY_TIMEOUT_MS = 5000;
-
 const App: React.FC = () => {
   const [initiated, setInitiated] = React.useState(false);
   const [showSplash, setShowSplash] = React.useState(true);
-  const [puppy, setPuppy] = React.useState('');
   const [error, setError] = React.useState<null | Error>(null);
 
   React.useEffect(() => {
-    // Startup gate: only the database matters. This used to sit in a Promise.all
-    // with the puppy fetch, so an unreachable network held the splash screen
-    // open indefinitely — and when the fetch rejected, the app fell through
-    // while initDB() was still seeding.
+    // Startup gate: only the database matters. The decorative puppy fetch
+    // lives in VibeCard, with the state it renders — it used to sit up here
+    // (once even in a Promise.all with initDB, holding the splash screen open
+    // on an unreachable network) and travel down via Routes' initialParams,
+    // which a mounted screen never re-reads, so late fetches never showed.
     (async function init() {
       try {
         await initDB();
@@ -34,30 +32,6 @@ const App: React.FC = () => {
         setInitiated(true);
       }
     })();
-  }, []);
-
-  // Purely decorative, so it must never gate startup. Bounded by its own timeout
-  // because fetch has none: a half-open socket would otherwise hang for minutes.
-  React.useEffect(() => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), PUPPY_TIMEOUT_MS);
-
-    fetch('https://dog.ceo/api/breeds/image/random', {
-      signal: controller.signal,
-    })
-      .then(response => response.json())
-      .then(data => {
-        if (data?.status === 'success') setPuppy(data.message);
-      })
-      .catch(() => {
-        /* offline, slow or aborted — the app simply runs without a puppy */
-      })
-      .finally(() => clearTimeout(timeout));
-
-    return () => {
-      clearTimeout(timeout);
-      controller.abort();
-    };
   }, []);
 
   if (showSplash) {
@@ -73,7 +47,7 @@ const App: React.FC = () => {
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{flex: 1}}>
-        <Routes puppy={puppy} />
+        <Routes />
         {error && (
           <Toast
             message={error.message}

@@ -22,6 +22,7 @@ import Toast from '../components/Toast';
 import VibeCard from '../components/VibeCard';
 
 import {
+  completedScheduledWeekdays,
   isoDate,
   startOfWeek,
   weekdaySetFromLabels,
@@ -46,9 +47,7 @@ import type {
   HeatmapDatum,
 } from '../common/databaseService';
 
-const Home: React.FC<BaseProps> = ({route, navigation}) => {
-  const {puppy} = route?.params as {puppy: string};
-
+const Home: React.FC<BaseProps> = ({navigation}) => {
   const [summary, setSummary] = React.useState<HomeSummaryShape | null>(null);
   const [plans, setPlans] = React.useState<Plan[]>([]);
   const [heatmap, setHeatmap] = React.useState<Map<string, HeatmapDatum>>(
@@ -101,6 +100,20 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
   const scheduledWeekdays = React.useMemo(
     () => weekdaySetFromLabels(planDays.map(d => d.weekday_label)),
     [planDays],
+  );
+
+  // The strip's checklist: which scheduled weekdays have their session done.
+  // Derived from the current week row's finished sessions, mapped to the
+  // weekday the plan schedules them on — not the calendar day they were
+  // trained — so it agrees with the sessions-finished counter next to it.
+  const completedWeekdays = React.useMemo(
+    () =>
+      completedScheduledWeekdays(
+        summary?.currentWeek?.sessions ?? [],
+        planDays,
+        new Date(),
+      ),
+    [summary, planDays],
   );
 
   useFocusEffect(
@@ -230,6 +243,7 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
             <CurrentWeekStrip
               data={heatmap}
               scheduledWeekdays={scheduledWeekdays}
+              completedWeekdays={completedWeekdays}
               activePlanId={summary.activePlan.id}
               weekProgress={
                 summary.currentWeek
@@ -246,7 +260,7 @@ const Home: React.FC<BaseProps> = ({route, navigation}) => {
           </>
         )}
 
-        <VibeCard puppy={puppy} />
+        <VibeCard />
       </ScrollView>
 
       <View style={styles.dataSection}>
