@@ -23,6 +23,7 @@ import {
   deleteActivitySession,
   fetchActivities,
   fetchActivitySessions,
+  fetchRecentSpots,
   getDBConnection,
   updateActivitySession,
 } from '../common/databaseService';
@@ -47,6 +48,9 @@ function dayLabel(performedAt: string): string {
 const Activities: React.FC = () => {
   const [sessions, setSessions] = React.useState<ActivitySession[]>([]);
   const [activities, setActivities] = React.useState<Activity[]>([]);
+  const [recentSpots, setRecentSpots] = React.useState<Map<number, string[]>>(
+    new Map(),
+  );
   const [loading, setLoading] = React.useState(true);
   const [initError, setInitError] = React.useState<Error | null>(null);
 
@@ -58,6 +62,7 @@ const Activities: React.FC = () => {
     const db = await getDBConnection();
     setSessions(await fetchActivitySessions(db));
     setActivities(await fetchActivities(db));
+    setRecentSpots(await fetchRecentSpots(db));
   }, []);
 
   useFocusEffect(
@@ -187,6 +192,7 @@ const Activities: React.FC = () => {
         activities={activities}
         initial={editing}
         error={error?.message ?? null}
+        recentSpotsByActivity={recentSpots}
         onSave={handleSave}
         onDelete={handleDelete}
         onClose={() => {

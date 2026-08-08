@@ -32,6 +32,8 @@ interface Props {
   activities: Activity[];
   initial: ActivitySession | null;
   error?: string | null;
+  /** Recently used spots per activity (fetchRecentSpots) — one-tap chips. */
+  recentSpotsByActivity: Map<number, string[]>;
   onSave: (draft: ActivitySessionDraft) => void;
   onDelete: (id: number) => void;
   onClose: () => void;
@@ -57,6 +59,7 @@ const ActivitySessionModal: React.FC<Props> = ({
   activities,
   initial,
   error,
+  recentSpotsByActivity,
   onSave,
   onDelete,
   onClose,
@@ -86,6 +89,8 @@ const ActivitySessionModal: React.FC<Props> = ({
     Number.isFinite(parsedDuration) && parsedDuration > 0
       ? parsedDuration
       : null;
+
+  const spotChips = recentSpotsByActivity.get(activityId) ?? [];
 
   function handleSave() {
     onSave({
@@ -212,6 +217,31 @@ const ActivitySessionModal: React.FC<Props> = ({
               accessibilityLabel="Spot"
               style={styles.textField}
             />
+
+            {spotChips.length > 0 && (
+              <View style={styles.pillRow}>
+                {spotChips.map(s => {
+                  const selected = spot.trim() === s;
+                  return (
+                    <Pressable
+                      key={s}
+                      onPress={() => setSpot(selected ? '' : s)}
+                      accessibilityRole="button"
+                      accessibilityState={{selected}}
+                      style={[styles.chip, selected && styles.chipSelected]}>
+                      <AppText
+                        bold
+                        style={[
+                          styles.chipText,
+                          selected && styles.chipTextSelected,
+                        ]}>
+                        {s.toUpperCase()}
+                      </AppText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
 
             <AppText style={styles.fieldLabel}>NOTE</AppText>
             <TextInput
