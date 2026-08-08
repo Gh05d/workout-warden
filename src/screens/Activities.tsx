@@ -16,7 +16,6 @@ import Loading from '../components/Loading';
 import {colors} from '../common/theme';
 import {activityColor} from '../common/planColor';
 import {
-  fetchActivities,
   fetchActivitySessions,
   getDBConnection,
 } from '../common/databaseService';
@@ -41,7 +40,6 @@ const Activities: React.FC = () => {
 
   const refresh = React.useCallback(async () => {
     const db = await getDBConnection();
-    await fetchActivities(db);
     setSessions(await fetchActivitySessions(db));
   }, []);
 
