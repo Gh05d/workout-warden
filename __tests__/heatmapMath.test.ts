@@ -4,12 +4,15 @@ import {
   currentWeekCells,
   currentWeekStreak,
   daysInLast,
+  dayPaintPair,
+  dayTotalCount,
   isoDate,
   startOfWeek,
   trainedAtLocalDay,
   weekdayIndexFromLabel,
   weekdaySetFromLabels,
 } from '../src/components/heatmapMath';
+import {activityColor, mixHexColors, planColor} from '../src/common/planColor';
 
 // Helper: build a Set from YYYY-MM-DD strings.
 const set = (...ds: string[]): Set<string> => new Set(ds);
@@ -388,5 +391,61 @@ describe('weekdaySetFromLabels', () => {
 
   it('de-duplicates repeated weekdays', () => {
     expect([...weekdaySetFromLabels(['Mon', 'Monday', 'MO'])]).toEqual([0]);
+  });
+});
+
+describe('dayPaintPair', () => {
+  it('returns null for an empty day', () => {
+    expect(dayPaintPair({})).toBeNull();
+    expect(dayPaintPair({activities: []})).toBeNull();
+  });
+
+  it('returns the plan pair for a plan-only day', () => {
+    expect(dayPaintPair({plan: {planId: 1, count: 1}})).toEqual(planColor(1));
+  });
+
+  it('returns the activity pair for a single-activity day', () => {
+    expect(dayPaintPair({activities: [{activityId: 2, count: 3}]})).toEqual(
+      activityColor(2),
+    );
+  });
+
+  it('blends plan + activity fgs and bgs on a mixed day', () => {
+    const pair = dayPaintPair({
+      plan: {planId: 1, count: 1},
+      activities: [{activityId: 1, count: 1}],
+    });
+    expect(pair).toEqual({
+      bg: mixHexColors([planColor(1).bg, activityColor(1).bg]),
+      fg: mixHexColors([planColor(1).fg, activityColor(1).fg]),
+    });
+  });
+
+  it('blends two different activities without a plan', () => {
+    const pair = dayPaintPair({
+      activities: [
+        {activityId: 1, count: 1},
+        {activityId: 2, count: 1},
+      ],
+    });
+    expect(pair).toEqual({
+      bg: mixHexColors([activityColor(1).bg, activityColor(2).bg]),
+      fg: mixHexColors([activityColor(1).fg, activityColor(2).fg]),
+    });
+  });
+});
+
+describe('dayTotalCount', () => {
+  it('sums plan and activity counts', () => {
+    expect(dayTotalCount({})).toBe(0);
+    expect(
+      dayTotalCount({
+        plan: {planId: 1, count: 2},
+        activities: [
+          {activityId: 1, count: 1},
+          {activityId: 2, count: 3},
+        ],
+      }),
+    ).toBe(6);
   });
 });

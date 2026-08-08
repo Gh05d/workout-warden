@@ -4,6 +4,8 @@
 // tested without pulling in React Native. All dates are LOCAL time — the
 // caller must produce `today` from the device's local Date.
 
+import {activityColor, mixHexColors, planColor} from '../common/planColor';
+
 /** YYYY-MM-DD in local time, matching SQLite's `DATE(..., 'localtime')` output. */
 export function isoDate(d: Date): string {
   const y = d.getFullYear();
@@ -213,4 +215,40 @@ export function currentWeekCells(
     });
   }
   return cells;
+}
+
+export interface ActivityDayEntry {
+  activityId: number;
+  count: number;
+}
+
+/** Everything painted on one calendar day. The plan side is already collapsed
+ * to the dominant plan by fetchHeatmapData, so it contributes at most one
+ * color source; each distinct activity contributes one more. */
+export interface DaySources {
+  plan?: {planId: number; count: number};
+  activities?: ReadonlyArray<ActivityDayEntry>;
+}
+
+export function dayTotalCount(s: DaySources): number {
+  let n = s.plan ? s.plan.count : 0;
+  for (const a of s.activities ?? []) n += a.count;
+  return n;
+}
+
+/** The {bg, fg} pair a day renders with. One source → its palette pair; a
+ * mixed day blends per variant (bg with bgs, fg with fgs) via mixHexColors.
+ * Callers pick the variant: the heatmap shows fg from 2 total entries up —
+ * which every mixed day has by definition — the week strip uses bg as the
+ * cell fill and fg for rail/mark, exactly like its plan-only rendering. */
+export function dayPaintPair(s: DaySources): {bg: string; fg: string} | null {
+  const pairs: {bg: string; fg: string}[] = [];
+  if (s.plan) pairs.push(planColor(s.plan.planId));
+  for (const a of s.activities ?? []) pairs.push(activityColor(a.activityId));
+  if (pairs.length === 0) return null;
+  if (pairs.length === 1) return pairs[0];
+  return {
+    bg: mixHexColors(pairs.map(p => p.bg)),
+    fg: mixHexColors(pairs.map(p => p.fg)),
+  };
 }
