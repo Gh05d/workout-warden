@@ -47,6 +47,11 @@ interface PlanSeed {
   days: PlanDaySeed[];
 }
 
+interface ActivitySeed {
+  slug: string;
+  name: string;
+}
+
 // ===== DB-side types (rows as returned by databaseService) =====
 
 interface Plan {
@@ -116,6 +121,33 @@ interface Week {
   sessions: Session[];
 }
 
+interface Activity {
+  id: number;
+  slug: string;
+  name: string;
+}
+
+interface ActivitySession {
+  id: number;
+  activity_id: number;
+  activity_slug: string;
+  activity_name: string;
+  performed_at: string; // local ISO date YYYY-MM-DD
+  duration_minutes: number | null;
+  spot: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+/** Form payload for create/update — camelCase like updateSet's patch. */
+interface ActivitySessionDraft {
+  activityId: number;
+  performedAt: string; // YYYY-MM-DD
+  durationMinutes: number | null;
+  spot: string | null;
+  note: string | null;
+}
+
 // ===== Navigation (unchanged from v1) =====
 
 interface Navigation {
@@ -153,12 +185,16 @@ export type {
   SessionTemplateSeed,
   PlanDaySeed,
   PlanSeed,
+  ActivitySeed,
   Plan,
   PlanDay,
   SetLog,
   ExerciseInstance,
   Session,
   Week,
+  Activity,
+  ActivitySession,
+  ActivitySessionDraft,
   Navigation,
   Route,
   BaseProps,

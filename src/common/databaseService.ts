@@ -10,6 +10,9 @@ import type {
   Session,
   ExerciseInstance,
   Week,
+  Activity,
+  ActivitySession,
+  ActivitySessionDraft,
 } from './types';
 
 const DB_NAME = 'warden.db';
@@ -108,6 +111,20 @@ const SCHEMA: string[] = [
      key   TEXT PRIMARY KEY,
      value TEXT
    )`,
+  `CREATE TABLE IF NOT EXISTS activities (
+     id   INTEGER PRIMARY KEY AUTOINCREMENT,
+     slug TEXT NOT NULL UNIQUE,
+     name TEXT NOT NULL
+   )`,
+  `CREATE TABLE IF NOT EXISTS activity_sessions (
+     id               INTEGER PRIMARY KEY AUTOINCREMENT,
+     activity_id      INTEGER NOT NULL REFERENCES activities(id),
+     performed_at     TEXT NOT NULL,
+     duration_minutes INTEGER,
+     spot             TEXT,
+     note             TEXT,
+     created_at       DATETIME DEFAULT (datetime('now'))
+   )`,
   `CREATE INDEX IF NOT EXISTS idx_plan_days_plan      ON plan_days(plan_id, day_index)`,
   `CREATE INDEX IF NOT EXISTS idx_ste_template        ON session_template_exercises(session_template_id, order_index)`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_week       ON sessions(week_id, day_index)`,
@@ -115,6 +132,8 @@ const SCHEMA: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_se_session          ON session_exercises(session_id, order_index)`,
   `CREATE INDEX IF NOT EXISTS idx_se_exercise         ON session_exercises(exercise_id)`,
   `CREATE INDEX IF NOT EXISTS idx_sets_se             ON sets(session_exercise_id, set_index)`,
+  `CREATE INDEX IF NOT EXISTS idx_actsess_date     ON activity_sessions(performed_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_actsess_activity ON activity_sessions(activity_id, performed_at)`,
 ];
 
 // Writes a template's prescription rows. Callers must have cleared any existing
@@ -849,6 +868,93 @@ export async function fetchAllExerciseSlugs(
     `SELECT slug, name FROM exercises ORDER BY name ASC`,
   );
   return res.rows.raw();
+}
+
+// ---------- Activities ----------
+
+export async function fetchActivities(db: SQLiteDatabase): Promise<Activity[]> {
+  const [res] = await db.executeSql(
+    `SELECT id, slug, name FROM activities ORDER BY id ASC`,
+  );
+  return res.rows.raw();
+}
+
+export async function fetchActivitySessions(
+  db: SQLiteDatabase,
+  opts: {fromDate?: string} = {},
+): Promise<ActivitySession[]> {
+  const where = opts.fromDate ? `WHERE s.performed_at >= ?` : '';
+  const params = opts.fromDate ? [opts.fromDate] : [];
+  const [res] = await db.executeSql(
+    `SELECT s.id, s.activity_id, a.slug AS activity_slug, a.name AS activity_name,
+            s.performed_at, s.duration_minutes, s.spot, s.note, s.created_at
+     FROM activity_sessions s
+     JOIN activities a ON a.id = s.activity_id
+     ${where}
+     ORDER BY s.performed_at DESC, s.id DESC`,
+    params,
+  );
+  return res.rows.raw();
+}
+
+export async function createActivitySession(
+  db: SQLiteDatabase,
+  draft: ActivitySessionDraft,
+): Promise<number> {
+  const [ins] = await db.executeSql(
+    `INSERT INTO activity_sessions (activity_id, performed_at, duration_minutes, spot, note)
+     VALUES (?, ?, ?, ?, ?)`,
+    [
+      draft.activityId,
+      draft.performedAt,
+      draft.durationMinutes,
+      draft.spot,
+      draft.note,
+    ],
+  );
+  return ins.insertId;
+}
+
+export async function updateActivitySession(
+  db: SQLiteDatabase,
+  id: number,
+  patch: Partial<ActivitySessionDraft>,
+): Promise<void> {
+  const fields: string[] = [];
+  const params: (number | string | null)[] = [];
+  if (patch.activityId !== undefined) {
+    fields.push('activity_id = ?');
+    params.push(patch.activityId);
+  }
+  if (patch.performedAt !== undefined) {
+    fields.push('performed_at = ?');
+    params.push(patch.performedAt);
+  }
+  if (patch.durationMinutes !== undefined) {
+    fields.push('duration_minutes = ?');
+    params.push(patch.durationMinutes);
+  }
+  if (patch.spot !== undefined) {
+    fields.push('spot = ?');
+    params.push(patch.spot);
+  }
+  if (patch.note !== undefined) {
+    fields.push('note = ?');
+    params.push(patch.note);
+  }
+  if (fields.length === 0) return;
+  params.push(id);
+  await db.executeSql(
+    `UPDATE activity_sessions SET ${fields.join(', ')} WHERE id = ?`,
+    params,
+  );
+}
+
+export async function deleteActivitySession(
+  db: SQLiteDatabase,
+  id: number,
+): Promise<void> {
+  await db.executeSql(`DELETE FROM activity_sessions WHERE id = ?`, [id]);
 }
 
 export async function fetchHomeSummary(

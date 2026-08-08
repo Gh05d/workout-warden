@@ -96,6 +96,22 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT
 );
 
+CREATE TABLE IF NOT EXISTS activities (
+  id   INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS activity_sessions (
+  id               INTEGER PRIMARY KEY AUTOINCREMENT,
+  activity_id      INTEGER NOT NULL REFERENCES activities(id),
+  performed_at     TEXT NOT NULL,
+  duration_minutes INTEGER,
+  spot             TEXT,
+  note             TEXT,
+  created_at       DATETIME DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_plan_days_plan      ON plan_days(plan_id, day_index);
 CREATE INDEX IF NOT EXISTS idx_ste_template        ON session_template_exercises(session_template_id, order_index);
 CREATE INDEX IF NOT EXISTS idx_sessions_week       ON sessions(week_id, day_index);
@@ -103,3 +119,5 @@ CREATE INDEX IF NOT EXISTS idx_sessions_trained    ON sessions(trained_at);
 CREATE INDEX IF NOT EXISTS idx_se_session          ON session_exercises(session_id, order_index);
 CREATE INDEX IF NOT EXISTS idx_se_exercise         ON session_exercises(exercise_id);
 CREATE INDEX IF NOT EXISTS idx_sets_se             ON sets(session_exercise_id, set_index);
+CREATE INDEX IF NOT EXISTS idx_actsess_date     ON activity_sessions(performed_at);
+CREATE INDEX IF NOT EXISTS idx_actsess_activity ON activity_sessions(activity_id, performed_at);
