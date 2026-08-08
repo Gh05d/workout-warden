@@ -1,30 +1,41 @@
 // src/screens/Activities.tsx
 //
 // Fifth bottom tab: the free-form activity log (surf, altinha). List of
-// sessions grouped by ISO week with per-week totals. Add/edit arrives with
-// ActivitySessionModal (separate task); this screen is read-only until then.
+// sessions grouped by ISO week with per-week totals. Add/edit/delete go
+// through ActivitySessionModal, opened from the FAB or by tapping a row.
 
 import React from 'react';
 import {useFocusEffect} from '@react-navigation/native';
-import {SectionList, StyleSheet, View} from 'react-native';
+import {Pressable, SectionList, StyleSheet, View} from 'react-native';
 import MaterialIcons from '@react-native-vector-icons/material-icons';
 
 import AppText from '../components/AppText';
 import ErrorComp from '../components/Error';
 import Loading from '../components/Loading';
+import Toast from '../components/Toast';
+import TacticalButton from '../components/TacticalButton';
+import ActivitySessionModal from '../components/ActivitySessionModal';
 
 import {colors} from '../common/theme';
 import {activityColor} from '../common/planColor';
 import {
+  createActivitySession,
+  deleteActivitySession,
+  fetchActivities,
   fetchActivitySessions,
   getDBConnection,
+  updateActivitySession,
 } from '../common/databaseService';
 import {
   formatTotals,
   groupByIsoWeek,
   parseIsoDate,
 } from '../components/activityStats';
-import type {ActivitySession} from '../common/types';
+import type {
+  Activity,
+  ActivitySession,
+  ActivitySessionDraft,
+} from '../common/types';
 
 const DAY_NAMES = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
@@ -35,12 +46,18 @@ function dayLabel(performedAt: string): string {
 
 const Activities: React.FC = () => {
   const [sessions, setSessions] = React.useState<ActivitySession[]>([]);
+  const [activities, setActivities] = React.useState<Activity[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [initError, setInitError] = React.useState<Error | null>(null);
+
+  const [editing, setEditing] = React.useState<ActivitySession | null>(null);
+  const [modalVisible, setModalVisible] = React.useState(false);
+  const [error, setError] = React.useState<Error | null>(null);
 
   const refresh = React.useCallback(async () => {
     const db = await getDBConnection();
     setSessions(await fetchActivitySessions(db));
+    setActivities(await fetchActivities(db));
   }, []);
 
   useFocusEffect(
@@ -57,6 +74,41 @@ const Activities: React.FC = () => {
       })();
     }, [refresh]),
   );
+
+  async function handleSave(draft: ActivitySessionDraft) {
+    try {
+      const db = await getDBConnection();
+      if (editing) await updateActivitySession(db, editing.id, draft);
+      else await createActivitySession(db, draft);
+      setModalVisible(false);
+      setEditing(null);
+      await refresh();
+    } catch (err) {
+      setError(err as Error);
+    }
+  }
+
+  async function handleDelete(id: number) {
+    try {
+      const db = await getDBConnection();
+      await deleteActivitySession(db, id);
+      setModalVisible(false);
+      setEditing(null);
+      await refresh();
+    } catch (err) {
+      setError(err as Error);
+    }
+  }
+
+  function openCreate() {
+    setEditing(null);
+    setModalVisible(true);
+  }
+
+  function openEdit(session: ActivitySession) {
+    setEditing(session);
+    setModalVisible(true);
+  }
 
   if (loading) return <Loading text="Loading activities" />;
   if (initError) return <ErrorComp error={initError} />;
@@ -83,6 +135,12 @@ const Activities: React.FC = () => {
               Surf sessions and altinha games live here — logged free-form, no
               plan attached.
             </AppText>
+            <TacticalButton
+              title="Log Your First Session"
+              icon="add"
+              onPress={openCreate}
+              fullWidth
+            />
           </View>
         </View>
       ) : (
@@ -101,8 +159,38 @@ const Activities: React.FC = () => {
               </AppText>
             </View>
           )}
-          renderItem={({item}) => <SessionRowComp session={item} />}
+          renderItem={({item}) => (
+            <SessionRowComp session={item} onPress={() => openEdit(item)} />
+          )}
           ItemSeparatorComponent={SectionSeparator}
+        />
+      )}
+
+      {sections.length > 0 && (
+        <Pressable
+          onPress={openCreate}
+          accessibilityLabel="Log activity"
+          style={({pressed}) => [styles.fab, pressed && styles.fabPressed]}>
+          <MaterialIcons name="add" size={28} color="#FFFFFF" />
+        </Pressable>
+      )}
+
+      <ActivitySessionModal
+        visible={modalVisible}
+        activities={activities}
+        initial={editing}
+        onSave={handleSave}
+        onDelete={handleDelete}
+        onClose={() => {
+          setModalVisible(false);
+          setEditing(null);
+        }}
+      />
+      {!!error && (
+        <Toast
+          type="error"
+          message={error.message}
+          onClose={() => setError(null)}
         />
       )}
     </View>
@@ -111,10 +199,16 @@ const Activities: React.FC = () => {
 
 const SectionSeparator: React.FC = () => <View style={styles.separator} />;
 
-const SessionRowComp: React.FC<{session: ActivitySession}> = ({session}) => {
+const SessionRowComp: React.FC<{
+  session: ActivitySession;
+  onPress: () => void;
+}> = ({session, onPress}) => {
   const c = activityColor(session.activity_id);
   return (
-    <View style={styles.row}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      style={({pressed}) => [styles.row, pressed && {opacity: 0.85}]}>
       <View style={[styles.rail, {backgroundColor: c.fg}]} />
       <View style={styles.rowBody}>
         <View style={styles.rowHead}>
@@ -141,7 +235,7 @@ const SessionRowComp: React.FC<{session: ActivitySession}> = ({session}) => {
           <AppText style={styles.rowNote}>{session.note}</AppText>
         )}
       </View>
-    </View>
+    </Pressable>
   );
 };
 
@@ -208,6 +302,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 19,
   },
+
+  // FAB
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  fabPressed: {backgroundColor: colors.primaryDeep},
 });
 
 export default Activities;
