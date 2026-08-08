@@ -18,6 +18,7 @@ import {
   fetchActivities,
   fetchActivityHeatmapData,
   fetchActivitySessions,
+  fetchRecentSpots,
   updateActivitySession,
 } from '../src/common/databaseService';
 
@@ -208,5 +209,58 @@ describe('fetchActivityHeatmapData', () => {
       {activityId: 2, count: 1},
     ]);
     expect(map.get('2026-08-01')).toEqual([{activityId: 1, count: 1}]);
+  });
+});
+
+describe('fetchRecentSpots', () => {
+  it('groups per activity, most recent first, excluding null spots', async () => {
+    const db = makeDb();
+    for (const [act, day, spot] of [
+      [1, '2026-08-01', 'Uluwatu'],
+      [1, '2026-08-03', 'Padang Padang'],
+      [1, '2026-08-05', 'Uluwatu'],
+      [2, '2026-08-04', 'Praia do Forte'],
+      [1, '2026-08-02', null],
+    ] as const) {
+      await createActivitySession(db, {
+        activityId: act,
+        performedAt: day,
+        durationMinutes: null,
+        spot,
+        note: null,
+      });
+    }
+    const map = await fetchRecentSpots(db);
+    expect(map.get(1)).toEqual(['Uluwatu', 'Padang Padang']);
+    expect(map.get(2)).toEqual(['Praia do Forte']);
+  });
+
+  it('caps at 8 spots per activity', async () => {
+    const db = makeDb();
+    for (let i = 1; i <= 10; i++) {
+      await createActivitySession(db, {
+        activityId: 1,
+        performedAt: `2026-07-${String(i).padStart(2, '0')}`,
+        durationMinutes: null,
+        spot: `Spot ${i}`,
+        note: null,
+      });
+    }
+    const map = await fetchRecentSpots(db);
+    expect(map.get(1)).toHaveLength(8);
+    expect(map.get(1)?.[0]).toBe('Spot 10');
+    expect(map.get(1)).not.toContain('Spot 1');
+  });
+
+  it('returns an empty map when nothing has a spot', async () => {
+    const db = makeDb();
+    await createActivitySession(db, {
+      activityId: 1,
+      performedAt: '2026-08-05',
+      durationMinutes: 60,
+      spot: null,
+      note: null,
+    });
+    expect((await fetchRecentSpots(db)).size).toBe(0);
   });
 });

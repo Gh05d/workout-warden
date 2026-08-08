@@ -995,6 +995,30 @@ export async function fetchActivityHeatmapData(
   return map;
 }
 
+const RECENT_SPOTS_LIMIT = 8;
+
+/** Recently used spots per activity, most recent first, capped at
+ * RECENT_SPOTS_LIMIT per activity. Derived from history — there is no spots
+ * table; the modal offers these as one-tap chips. */
+export async function fetchRecentSpots(
+  db: SQLiteDatabase,
+): Promise<Map<number, string[]>> {
+  const [res] = await db.executeSql(
+    `SELECT activity_id, spot, MAX(performed_at) AS last_day, MAX(id) AS last_id
+     FROM activity_sessions
+     WHERE spot IS NOT NULL
+     GROUP BY activity_id, spot
+     ORDER BY last_day DESC, last_id DESC`,
+  );
+  const map = new Map<number, string[]>();
+  for (const row of res.rows.raw()) {
+    const list = map.get(row.activity_id) ?? [];
+    if (list.length < RECENT_SPOTS_LIMIT) list.push(row.spot);
+    map.set(row.activity_id, list);
+  }
+  return map;
+}
+
 export async function fetchHomeSummary(
   db: SQLiteDatabase,
 ): Promise<HomeSummary | null> {
