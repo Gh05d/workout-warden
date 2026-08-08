@@ -265,6 +265,7 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
               scheduledWeekdays={scheduledWeekdays}
               completedWeekdays={completedWeekdays}
               activePlanId={summary.activePlan.id}
+              activityData={activityHeat}
               weekProgress={
                 summary.currentWeek
                   ? {

@@ -5,9 +5,12 @@
 // days are a checklist: the ✓ marks that weekday's *session* being done — on
 // whatever calendar day it was trained — so Tuesday's plan finished on
 // Wednesday still checks off Tuesday. Scheduled days whose session is still
-// open get a quiet dot. Unscheduled days keep the calendar view (tinted by the
-// plan trained that day) so extra sessions stay visible, and otherwise recede
-// as rest days. Under the boxes sits a progress bar over the checklist.
+// open get a quiet dot. Unscheduled days keep the calendar view — tinted by
+// whatever was logged that day, plan session and/or activity, blended via
+// dayPaintPair when both land on the same day — so extra sessions and
+// activities stay visible, and otherwise recede as rest days. Under the boxes
+// sits a progress bar over the checklist (scheduled training days only —
+// activities never count toward it).
 
 import React from 'react';
 import {StyleSheet, View} from 'react-native';
@@ -15,7 +18,8 @@ import {StyleSheet, View} from 'react-native';
 import AppText from './AppText';
 import {colors} from '../common/theme';
 import {planColor} from '../common/planColor';
-import {currentWeekCells} from './heatmapMath';
+import {currentWeekCells, dayPaintPair} from './heatmapMath';
+import type {ActivityDayEntry, DaySources} from './heatmapMath';
 import type {HeatmapDatum} from '../common/databaseService';
 
 interface Props {
@@ -30,6 +34,10 @@ interface Props {
   completedWeekdays: ReadonlySet<number>;
   /** Identity colour for the scheduled-day dots and the progress fill. */
   activePlanId: number | null;
+  /** Per-day activity log entries, keyed by isoDate — only paints unscheduled
+   * cells (see heatmapMath.dayPaintPair); scheduled cells stay a pure
+   * session-finished checklist regardless of what's in here. */
+  activityData: Map<string, ActivityDayEntry[]>;
 }
 
 const CELL_GAP = 4;
@@ -40,6 +48,7 @@ const CurrentWeekStrip: React.FC<Props> = ({
   scheduledWeekdays,
   completedWeekdays,
   activePlanId,
+  activityData,
 }) => {
   const today = React.useMemo(() => new Date(), []);
   const cells = React.useMemo(
@@ -82,16 +91,24 @@ const CurrentWeekStrip: React.FC<Props> = ({
           {cells.map((cell, i) => {
             // Scheduled cells are a checklist (✓ = that weekday's session is
             // finished, in the active plan's colour); unscheduled cells keep
-            // the calendar view (✓ = trained that day, in that plan's colour).
+            // the calendar view — now including activities — painted by the
+            // day's color sources (blended when plan + activity share the
+            // day).
+            const sources: DaySources = {
+              plan: data.get(cell.key),
+              activities: activityData.get(cell.key),
+            };
+            const unscheduledPair = cell.scheduled
+              ? null
+              : dayPaintPair(sources);
             const done = cell.scheduled
               ? completedWeekdays.has(i)
-              : cell.trained;
-            const paintId = cell.scheduled
-              ? done
-                ? activePlanId
+              : !!unscheduledPair;
+            const c = cell.scheduled
+              ? done && activePlanId != null
+                ? planColor(activePlanId)
                 : null
-              : cell.planId;
-            const c = paintId != null ? planColor(paintId) : null;
+              : unscheduledPair;
             // Three tiers of emphasis: done (plan colour) > scheduled but
             // open (muted) > rest day (recedes).
             const labelColor = c
