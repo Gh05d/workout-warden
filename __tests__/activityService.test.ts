@@ -49,7 +49,11 @@ function makeDb() {
         >[];
         return [
           {
-            rows: {length: arr.length, item: (i: number) => arr[i], raw: () => arr},
+            rows: {
+              length: arr.length,
+              item: (i: number) => arr[i],
+              raw: () => arr,
+            },
             insertId: 0,
           },
         ];
@@ -142,7 +146,10 @@ describe('activity CRUD', () => {
       spot: 'Uluwatu',
       note: null,
     });
-    await updateActivitySession(db, id, {durationMinutes: 120, note: 'long one'});
+    await updateActivitySession(db, id, {
+      durationMinutes: 120,
+      note: 'long one',
+    });
     const [s] = await fetchActivitySessions(db);
     expect(s).toMatchObject({
       duration_minutes: 120,
