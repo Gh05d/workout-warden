@@ -1,13 +1,16 @@
-// Stable per-plan colour palette. Used by the Weeks tab to tag each week
-// header with a pill identifying which plan it belongs to.
+// Per-plan and per-activity colour palettes. Concept: warm tones for plans
+// (gym — the app's orange accent family), cool water/nature tones for
+// activities, so the two never look alike in the heatmap or legends. fg stays
+// in the vivid 600–800 range: Material-900 fgs shipped once and read as
+// near-black at small sizes (rails, bars, pills).
 
 const PALETTE: ReadonlyArray<{bg: string; fg: string}> = [
-  {bg: '#FFE0B2', fg: '#E65100'},
-  {bg: '#C8E6C9', fg: '#1B5E20'},
-  {bg: '#BBDEFB', fg: '#0D47A1'},
-  {bg: '#E1BEE7', fg: '#4A148C'},
-  {bg: '#FFCDD2', fg: '#B71C1C'},
-  {bg: '#D7CCC8', fg: '#3E2723'},
+  {bg: '#FFE0B2', fg: '#EF6C00'}, // orange — matches the app accent
+  {bg: '#FFCDD2', fg: '#D32F2F'}, // red
+  {bg: '#E1BEE7', fg: '#8E24AA'}, // violet
+  {bg: '#F8BBD0', fg: '#C2185B'}, // magenta
+  {bg: '#D7CCC8', fg: '#6D4C41'}, // bronze
+  {bg: '#CFD8DC', fg: '#546E7A'}, // slate
 ];
 
 export function planColor(planId: number): {bg: string; fg: string} {
@@ -15,14 +18,13 @@ export function planColor(planId: number): {bg: string; fg: string} {
   return PALETTE[idx];
 }
 
-// Activity palette: deliberately hue-distant from the plan palette above AND
-// internally (cyan / pink / teal / deep-purple families), so activities read
-// differently from plans in the heatmap and pairwise blends stay tellable.
+// Slot pairs are identity: surf is ocean blue, altinha is the Brazilian
+// yellow-bg/green-fg pair (the combination reads as the flag).
 const ACTIVITY_PALETTE: ReadonlyArray<{bg: string; fg: string}> = [
-  {bg: '#B2EBF2', fg: '#006064'}, // cyan — surf
-  {bg: '#F8BBD0', fg: '#880E4F'}, // pink — altinha
-  {bg: '#B2DFDB', fg: '#004D40'}, // teal
-  {bg: '#D1C4E9', fg: '#311B92'}, // deep purple
+  {bg: '#B3E5FC', fg: '#0277BD'}, // ocean blue — surf
+  {bg: '#FFF59D', fg: '#388E3C'}, // Brazil yellow/green — altinha
+  {bg: '#B2DFDB', fg: '#00897B'}, // teal
+  {bg: '#B2EBF2', fg: '#0097A7'}, // cyan
 ];
 
 export function activityColor(activityId: number): {bg: string; fg: string} {
