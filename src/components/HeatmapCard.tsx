@@ -10,15 +10,19 @@ import Reanimated, {FadeIn} from 'react-native-reanimated';
 
 import AppText from './AppText';
 import {colors} from '../common/theme';
-import {planColor} from '../common/planColor';
+import {activityColor, planColor} from '../common/planColor';
 import type {HeatmapDatum} from '../common/databaseService';
-import type {Plan} from '../common/types';
+import type {Activity, Plan} from '../common/types';
 import {
   currentWeekStreak,
   daysInLast,
+  dayPaintPair,
+  dayTotalCount,
   isoDate,
   startOfWeek,
   WEEKDAY_LABELS,
+  type ActivityDayEntry,
+  type DaySources,
 } from './heatmapMath';
 
 interface Props {
@@ -27,6 +31,10 @@ interface Props {
   data: Map<string, HeatmapDatum>;
   /** All plans, used to name the color legend. */
   plans: Plan[];
+  /** Map of YYYY-MM-DD → activity sessions that day, grouped by activity. */
+  activityData: Map<string, ActivityDayEntry[]>;
+  /** Activity catalogue, used to name the legend. */
+  activities: Activity[];
 }
 
 const WEEKS_SHOWN = 16;
@@ -41,24 +49,40 @@ const CELL_EMPTY = '#EDEAE4';
 const AXIS_WIDTH = 20;
 const AXIS_GAP = 6; // horizontal gap between the weekday axis and the grid
 
-// A trained cell is tinted by its dominant plan: the pastel `bg` for a single
-// session, the saturated `fg` for two or more.
-function fillFor(datum: HeatmapDatum | undefined): string {
-  if (!datum) return CELL_EMPTY;
-  const c = planColor(datum.planId);
-  return datum.count >= 2 ? c.fg : c.bg;
+// A day is tinted by its color sources (dominant plan and/or activities):
+// the pastel `bg` for a single entry, the saturated `fg` for two or more —
+// mixed days always have 2+ entries, so blends always render in fg strength.
+function fillFor(sources: DaySources): string {
+  const pair = dayPaintPair(sources);
+  if (!pair) return CELL_EMPTY;
+  return dayTotalCount(sources) >= 2 ? pair.fg : pair.bg;
 }
 
-const HeatmapCard: React.FC<Props> = ({data, plans}) => {
+const HeatmapCard: React.FC<Props> = ({
+  data,
+  plans,
+  activityData,
+  activities,
+}) => {
   const {width} = useWindowDimensions();
   const today = React.useMemo(() => new Date(), []);
-  const trainedSet = React.useMemo(() => new Set(data.keys()), [data]);
+  const trainedSet = React.useMemo(
+    () => new Set([...data.keys(), ...activityData.keys()]),
+    [data, activityData],
+  );
 
   const legendPlans = React.useMemo(() => {
     const ids = new Set<number>();
     for (const v of data.values()) ids.add(v.planId);
     return plans.filter(p => ids.has(p.id));
   }, [data, plans]);
+
+  const legendActivities = React.useMemo(() => {
+    const ids = new Set<number>();
+    for (const list of activityData.values())
+      for (const e of list) ids.add(e.activityId);
+    return activities.filter(a => ids.has(a.id));
+  }, [activityData, activities]);
 
   const cellSize = Math.max(
     8,
@@ -89,7 +113,7 @@ const HeatmapCard: React.FC<Props> = ({data, plans}) => {
   }, [today]);
 
   const todayKey = isoDate(today);
-  const isEmpty = data.size === 0;
+  const isEmpty = data.size === 0 && activityData.size === 0;
 
   const streak = isEmpty ? 0 : currentWeekStreak(trainedSet, today);
   const last30 = isEmpty ? 0 : daysInLast(30, trainedSet, today);
@@ -137,7 +161,10 @@ const HeatmapCard: React.FC<Props> = ({data, plans}) => {
             <View key={rowIdx} style={[styles.row, {gap: GAP}]}>
               {row.map((date, weekIdx) => {
                 const key = isoDate(date);
-                const datum = data.get(key);
+                const sources: DaySources = {
+                  plan: data.get(key),
+                  activities: activityData.get(key),
+                };
                 const isToday = key === todayKey;
                 const isFuture = date > today;
                 // Stagger left-to-right (oldest → today) with a small per-day
@@ -155,7 +182,7 @@ const HeatmapCard: React.FC<Props> = ({data, plans}) => {
                         height: cellSize,
                         backgroundColor: isFuture
                           ? 'transparent'
-                          : fillFor(datum),
+                          : fillFor(sources),
                       },
                       isToday && styles.todayCell,
                     ]}
@@ -167,7 +194,7 @@ const HeatmapCard: React.FC<Props> = ({data, plans}) => {
         </View>
       </View>
 
-      {legendPlans.length > 0 && (
+      {(legendPlans.length > 0 || legendActivities.length > 0) && (
         <View style={styles.legend}>
           {legendPlans.map(p => (
             <View key={p.id} style={styles.legendItem}>
@@ -179,6 +206,19 @@ const HeatmapCard: React.FC<Props> = ({data, plans}) => {
               />
               <AppText style={styles.legendText}>
                 {p.name.toUpperCase()}
+              </AppText>
+            </View>
+          ))}
+          {legendActivities.map(a => (
+            <View key={`act-${a.id}`} style={styles.legendItem}>
+              <View
+                style={[
+                  styles.legendSwatch,
+                  {backgroundColor: activityColor(a.id).fg},
+                ]}
+              />
+              <AppText style={styles.legendText}>
+                {a.name.toUpperCase()}
               </AppText>
             </View>
           ))}

@@ -16,6 +16,7 @@ import {
   createActivitySession,
   deleteActivitySession,
   fetchActivities,
+  fetchActivityHeatmapData,
   fetchActivitySessions,
   updateActivitySession,
 } from '../src/common/databaseService';
@@ -179,5 +180,33 @@ describe('activity CRUD', () => {
       {id: 1, slug: 'surf', name: 'Surf'},
       {id: 2, slug: 'altinha', name: 'Altinha'},
     ]);
+  });
+});
+
+describe('fetchActivityHeatmapData', () => {
+  it('groups per day and activity, honoring fromDate', async () => {
+    const db = makeDb();
+    for (const [act, day] of [
+      [1, '2026-08-05'],
+      [1, '2026-08-05'],
+      [2, '2026-08-05'],
+      [1, '2026-08-01'],
+      [1, '2026-06-01'],
+    ] as const) {
+      await createActivitySession(db, {
+        activityId: act,
+        performedAt: day,
+        durationMinutes: null,
+        spot: null,
+        note: null,
+      });
+    }
+    const map = await fetchActivityHeatmapData(db, '2026-07-01');
+    expect([...map.keys()]).toEqual(['2026-08-01', '2026-08-05']);
+    expect(map.get('2026-08-05')).toEqual([
+      {activityId: 1, count: 2},
+      {activityId: 2, count: 1},
+    ]);
+    expect(map.get('2026-08-01')).toEqual([{activityId: 1, count: 1}]);
   });
 });

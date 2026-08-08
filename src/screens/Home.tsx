@@ -27,11 +27,14 @@ import {
   startOfWeek,
   weekdaySetFromLabels,
 } from '../components/heatmapMath';
+import type {ActivityDayEntry} from '../components/heatmapMath';
 
 import {colors} from '../common/theme';
 import {
   createWeek,
   exportDatabase,
+  fetchActivities,
+  fetchActivityHeatmapData,
   fetchHeatmapData,
   fetchHomeSummary,
   fetchPlanDays,
@@ -41,7 +44,14 @@ import {
   initDB,
   setActivePlanId,
 } from '../common/databaseService';
-import type {BaseProps, Plan, PlanDay, Session, Week} from '../common/types';
+import type {
+  Activity,
+  BaseProps,
+  Plan,
+  PlanDay,
+  Session,
+  Week,
+} from '../common/types';
 import type {
   HomeSummary as HomeSummaryShape,
   HeatmapDatum,
@@ -56,6 +66,10 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
   // The active plan's weekly schedule. Drives the strip's training-vs-rest-day
   // marks and — critically — the Sessions route name (see sessionRouteLabel).
   const [planDays, setPlanDays] = React.useState<PlanDay[]>([]);
+  const [activityHeat, setActivityHeat] = React.useState<
+    Map<string, ActivityDayEntry[]>
+  >(new Map());
+  const [activities, setActivities] = React.useState<Activity[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<Error | null>(null);
   const [modalVisible, setModalVisible] = React.useState(false);
@@ -70,20 +84,24 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
     heatmapFrom.setDate(heatmapFrom.getDate() - 15 * 7);
     const fromKey = isoDate(heatmapFrom);
 
-    let [s, p, h] = await Promise.all([
+    let [s, p, h, ah, acts] = await Promise.all([
       fetchHomeSummary(db),
       fetchPlans(db),
       fetchHeatmapData(db, fromKey),
+      fetchActivityHeatmapData(db, fromKey),
+      fetchActivities(db),
     ]);
     // Self-heal: an imported DB may be missing the active_plan_id setting
     // and/or the Surf/Strength seed plans. Re-run initDB once to repair.
     if (s == null) {
       await initDB();
       const db2 = await getDBConnection();
-      [s, p, h] = await Promise.all([
+      [s, p, h, ah, acts] = await Promise.all([
         fetchHomeSummary(db2),
         fetchPlans(db2),
         fetchHeatmapData(db2, fromKey),
+        fetchActivityHeatmapData(db2, fromKey),
+        fetchActivities(db2),
       ]);
     }
     // plan_days is the *recurring* weekly schedule, which maps onto any calendar
@@ -95,6 +113,8 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
     setPlans(p);
     setHeatmap(h);
     setPlanDays(days);
+    setActivityHeat(ah);
+    setActivities(acts);
   }, []);
 
   const scheduledWeekdays = React.useMemo(
@@ -256,7 +276,12 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
               }
             />
 
-            <HeatmapCard data={heatmap} plans={plans} />
+            <HeatmapCard
+              data={heatmap}
+              plans={plans}
+              activityData={activityHeat}
+              activities={activities}
+            />
           </>
         )}
 

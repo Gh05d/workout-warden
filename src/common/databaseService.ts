@@ -14,6 +14,7 @@ import type {
   ActivitySession,
   ActivitySessionDraft,
 } from './types';
+import type {ActivityDayEntry} from '../components/heatmapMath';
 
 const DB_NAME = 'warden.db';
 const DB_PATH_ANDROID = '/data/data/com.workoutwarden/databases/warden.db';
@@ -968,6 +969,30 @@ export async function deleteActivitySession(
   id: number,
 ): Promise<void> {
   await db.executeSql(`DELETE FROM activity_sessions WHERE id = ?`, [id]);
+}
+
+/** Per local day, the activity sessions grouped by activity. `performed_at`
+ * is already a local YYYY-MM-DD string — unlike sessions.trained_at there is
+ * no timestamp and therefore no 'localtime' conversion. */
+export async function fetchActivityHeatmapData(
+  db: SQLiteDatabase,
+  fromLocalDate: string,
+): Promise<Map<string, ActivityDayEntry[]>> {
+  const [res] = await db.executeSql(
+    `SELECT performed_at AS date, activity_id, COUNT(*) AS sessions
+     FROM activity_sessions
+     WHERE performed_at >= ?
+     GROUP BY performed_at, activity_id
+     ORDER BY date ASC, activity_id ASC`,
+    [fromLocalDate],
+  );
+  const map = new Map<string, ActivityDayEntry[]>();
+  for (const row of res.rows.raw()) {
+    const list = map.get(row.date) ?? [];
+    list.push({activityId: row.activity_id, count: row.sessions});
+    map.set(row.date, list);
+  }
+  return map;
 }
 
 export async function fetchHomeSummary(
