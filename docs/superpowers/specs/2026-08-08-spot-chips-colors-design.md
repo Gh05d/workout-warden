@@ -71,7 +71,7 @@ Both palettes live in `src/common/planColor.ts`. `bg` stays pastel (100-level), 
 ### Properties preserved
 
 - Plan-fg set and activity-fg set are disjoint (existing `planColor.test.ts` assertion keeps passing — it checks distinctness, not concrete hex values).
-- All fg values keep ≥ ~3.5:1 contrast on white paper (labels are bold) and carry white text on filled pills.
+- fg values sit at ~3:1 or better on white paper (bold labels; the orange plan slot anchors to the app's `#FF9800` accent family, which app-wide carries white text at lower contrast than that) and all carry white text on filled pills at parity with the existing `colors.primary` convention.
 - Warm-vs-cool split keeps plans and activities tellable apart even in heatmap blends.
 
 ## Testing

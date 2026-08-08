@@ -263,4 +263,35 @@ describe('fetchRecentSpots', () => {
     });
     expect((await fetchRecentSpots(db)).size).toBe(0);
   });
+
+  it('breaks a same-day tie toward the newer row', async () => {
+    const db = makeDb();
+    for (const spot of ['Older Spot', 'Newer Spot']) {
+      await createActivitySession(db, {
+        activityId: 1,
+        performedAt: '2026-08-05',
+        durationMinutes: null,
+        spot,
+        note: null,
+      });
+    }
+    const map = await fetchRecentSpots(db);
+    expect(map.get(1)).toEqual(['Newer Spot', 'Older Spot']);
+  });
+
+  it('keeps the same spot name separate per activity', async () => {
+    const db = makeDb();
+    for (const act of [1, 2] as const) {
+      await createActivitySession(db, {
+        activityId: act,
+        performedAt: '2026-08-05',
+        durationMinutes: null,
+        spot: 'Praia do Forte',
+        note: null,
+      });
+    }
+    const map = await fetchRecentSpots(db);
+    expect(map.get(1)).toEqual(['Praia do Forte']);
+    expect(map.get(2)).toEqual(['Praia do Forte']);
+  });
 });
