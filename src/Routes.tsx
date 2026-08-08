@@ -15,6 +15,7 @@ import HomeScreen from './screens/Home';
 import StatisticsScreen from './screens/Statistics';
 import TrainingProgramScreen from './screens/Session';
 import Weeks from './screens/Weeks';
+import ActivitiesScreen from './screens/Activities';
 
 import {colors} from './common/theme';
 import {
@@ -163,6 +164,11 @@ const Routes: React.FC = () => {
           name="Weeks"
           component={Weeks}
           options={{tabBarIcon: renderTabBarIcon('save-as')}}
+        />
+        <Tab.Screen
+          name="Activities"
+          component={ActivitiesScreen}
+          options={{tabBarIcon: renderTabBarIcon('surfing')}}
         />
         <Tab.Screen
           name="Sessions"
