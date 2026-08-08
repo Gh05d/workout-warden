@@ -15,6 +15,7 @@ import Loading from '../components/Loading';
 import Toast from '../components/Toast';
 import TacticalButton from '../components/TacticalButton';
 import ActivitySessionModal from '../components/ActivitySessionModal';
+import ActivityWeeklyBars from '../components/ActivityWeeklyBars';
 
 import {colors} from '../common/theme';
 import {activityColor} from '../common/planColor';
@@ -149,6 +150,11 @@ const Activities: React.FC = () => {
           keyExtractor={s => String(s.id)}
           stickySectionHeadersEnabled
           contentContainerStyle={styles.list}
+          ListHeaderComponent={
+            <View style={{marginBottom: 12}}>
+              <ActivityWeeklyBars sessions={sessions} />
+            </View>
+          }
           renderSectionHeader={({section}) => (
             <View style={styles.sectionHeader}>
               <AppText bold style={styles.sectionTitle}>

@@ -85,3 +85,54 @@ export function formatTotals(totals: ActivityTotals[]): string {
     })
     .join(' · ');
 }
+
+export const UNTIMED_PLINTH_MINUTES = 15;
+
+export interface WeekBar {
+  key: string;
+  label: string;
+  segments: {activityId: number; minutes: number}[];
+  totalMinutes: number;
+}
+
+/** The last `weeksBack` ISO weeks (ending with the week of `today`) as
+ * stacked-bar data, oldest first. Weeks without sessions are present with
+ * empty segments so the x-axis has no gaps. Untimed sessions contribute a
+ * fixed plinth so they stay visible — gauge only, the list totals stay
+ * honest and exclude it. */
+export function weeklyBarData(
+  sessions: ActivitySession[],
+  today: Date,
+  weeksBack: number = 8,
+): WeekBar[] {
+  const bars: WeekBar[] = [];
+  const byKey = new Map<string, WeekBar>();
+  const currentMonday = startOfWeek(today);
+  for (let i = weeksBack - 1; i >= 0; i--) {
+    const monday = new Date(currentMonday);
+    monday.setDate(currentMonday.getDate() - i * 7);
+    const bar: WeekBar = {
+      key: isoDate(monday),
+      label: `W${isoWeekNumber(monday)}`,
+      segments: [],
+      totalMinutes: 0,
+    };
+    bars.push(bar);
+    byKey.set(bar.key, bar);
+  }
+  for (const s of sessions) {
+    const key = isoDate(startOfWeek(parseIsoDate(s.performed_at)));
+    const bar = byKey.get(key);
+    if (!bar) continue;
+    const minutes = s.duration_minutes ?? UNTIMED_PLINTH_MINUTES;
+    let seg = bar.segments.find(x => x.activityId === s.activity_id);
+    if (!seg) {
+      seg = {activityId: s.activity_id, minutes: 0};
+      bar.segments.push(seg);
+      bar.segments.sort((a, b) => a.activityId - b.activityId);
+    }
+    seg.minutes += minutes;
+    bar.totalMinutes += minutes;
+  }
+  return bars;
+}

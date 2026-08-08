@@ -4,6 +4,8 @@ import {
   groupByIsoWeek,
   isoWeekNumber,
   parseIsoDate,
+  weeklyBarData,
+  UNTIMED_PLINTH_MINUTES,
 } from '../src/components/activityStats';
 
 function sess(over: Partial<ActivitySession>): ActivitySession {
@@ -77,5 +79,58 @@ describe('formatTotals', () => {
         {activityId: 2, activityName: 'Altinha', count: 1, minutes: 0},
       ]),
     ).toBe('SURF 3× / 5.0H · ALTINHA 1×');
+  });
+});
+
+describe('weeklyBarData', () => {
+  const today = parseIsoDate('2026-08-05'); // Wednesday, ISO week 32
+
+  it('returns one bar per week incl. empty gap weeks, oldest first', () => {
+    const bars = weeklyBarData(
+      [
+        sess({id: 1, performed_at: '2026-08-04', duration_minutes: 90}),
+        sess({id: 2, performed_at: '2026-07-20', duration_minutes: 60}),
+      ],
+      today,
+      4,
+    );
+    expect(bars.map(b => b.label)).toEqual(['W29', 'W30', 'W31', 'W32']);
+    expect(bars[0].totalMinutes).toBe(0); // W29 empty
+    expect(bars[1].totalMinutes).toBe(60); // 2026-07-20 is the Monday of W30
+    expect(bars[2].totalMinutes).toBe(0);
+    expect(bars[3].totalMinutes).toBe(90);
+  });
+
+  it('stacks per activity and adds the plinth for untimed sessions', () => {
+    const bars = weeklyBarData(
+      [
+        sess({id: 1, performed_at: '2026-08-04', duration_minutes: 90}),
+        sess({
+          id: 2,
+          performed_at: '2026-08-05',
+          activity_id: 2,
+          activity_name: 'Altinha',
+          activity_slug: 'altinha',
+          duration_minutes: null,
+        }),
+      ],
+      today,
+      1,
+    );
+    expect(bars).toHaveLength(1);
+    expect(bars[0].segments).toEqual([
+      {activityId: 1, minutes: 90},
+      {activityId: 2, minutes: UNTIMED_PLINTH_MINUTES},
+    ]);
+    expect(bars[0].totalMinutes).toBe(90 + UNTIMED_PLINTH_MINUTES);
+  });
+
+  it('ignores sessions older than the window', () => {
+    const bars = weeklyBarData(
+      [sess({id: 1, performed_at: '2026-01-05', duration_minutes: 60})],
+      today,
+      2,
+    );
+    expect(bars.every(b => b.totalMinutes === 0)).toBe(true);
   });
 });
