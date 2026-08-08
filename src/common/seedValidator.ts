@@ -3,14 +3,28 @@
 // Throws on the first inconsistency so seed drift fails fast at startup
 // before any rows are written to SQLite.
 
-import type {ExerciseSeed, PlanSeed, ExercisePrescription} from './types';
+import type {
+  ActivitySeed,
+  ExerciseSeed,
+  PlanSeed,
+  ExercisePrescription,
+} from './types';
 
 export interface SeedBundle {
   exercises: ExerciseSeed[];
   plans: PlanSeed[];
+  activities: ActivitySeed[];
 }
 
 export function validateSeed(bundle: SeedBundle): void {
+  const activitySlugs = new Set<string>();
+  for (const act of bundle.activities) {
+    if (activitySlugs.has(act.slug)) {
+      throw new Error(`duplicate activity slug '${act.slug}'`);
+    }
+    activitySlugs.add(act.slug);
+  }
+
   const slugs = new Set<string>();
   for (const ex of bundle.exercises) {
     if (slugs.has(ex.slug)) {
@@ -48,7 +62,9 @@ function validateTemplate(
   exercises: ExercisePrescription[],
   catalogue: Set<string>,
 ): void {
-  const sortedByOrder = [...exercises].sort((a, b) => a.order_index - b.order_index);
+  const sortedByOrder = [...exercises].sort(
+    (a, b) => a.order_index - b.order_index,
+  );
   sortedByOrder.forEach((ex, i) => {
     const expected = i + 1;
     if (ex.order_index !== expected) {

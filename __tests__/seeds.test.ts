@@ -1,9 +1,15 @@
 import {validateSeed} from '../src/common/seedValidator';
-import {EXERCISES, PLANS} from '../src/seeds';
+import {ACTIVITIES, EXERCISES, PLANS} from '../src/seeds';
 
 describe('seed bundle', () => {
   it('validates without errors', () => {
-    expect(() => validateSeed({exercises: [...EXERCISES], plans: [...PLANS]})).not.toThrow();
+    expect(() =>
+      validateSeed({
+        exercises: [...EXERCISES],
+        plans: [...PLANS],
+        activities: [...ACTIVITIES],
+      }),
+    ).not.toThrow();
   });
 
   it('includes the Surf plan', () => {
@@ -20,5 +26,9 @@ describe('seed bundle', () => {
     const mon = surf!.days.find(d => d.weekday_label === 'Mon');
     const fri = surf!.days.find(d => d.weekday_label === 'Fri');
     expect(mon!.session_template_slug).toBe(fri!.session_template_slug);
+  });
+
+  it('seeds surf and altinha activities', () => {
+    expect(ACTIVITIES.map(a => a.slug)).toEqual(['surf', 'altinha']);
   });
 });

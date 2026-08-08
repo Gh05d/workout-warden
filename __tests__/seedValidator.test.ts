@@ -32,34 +32,58 @@ function bundle(overrides: any = {}) {
 
 describe('validateSeed', () => {
   it('accepts a valid bundle', () => {
-    expect(() => validateSeed(bundle())).not.toThrow();
+    expect(() =>
+      validateSeed({
+        exercises: bundle().exercises,
+        plans: bundle().plans,
+        activities: [],
+      }),
+    ).not.toThrow();
   });
 
   it('rejects unknown exercise_slug', () => {
     const b = bundle();
     b.plans[0].session_templates[0].exercises[0].exercise_slug = 'unknown';
-    expect(() => validateSeed(b)).toThrow(/exercise_slug 'unknown' not in catalogue/);
+    expect(() =>
+      validateSeed({exercises: b.exercises, plans: b.plans, activities: []}),
+    ).toThrow(/exercise_slug 'unknown' not in catalogue/);
   });
 
   it('rejects prescription without reps or seconds', () => {
     const b = bundle();
     delete b.plans[0].session_templates[0].exercises[0].prescribed_reps;
-    expect(() => validateSeed(b)).toThrow(/must set prescribed_reps OR prescribed_seconds/);
+    expect(() =>
+      validateSeed({exercises: b.exercises, plans: b.plans, activities: []}),
+    ).toThrow(/must set prescribed_reps OR prescribed_seconds/);
   });
 
   it('rejects prescription with both reps and seconds', () => {
     const b = bundle();
     b.plans[0].session_templates[0].exercises[0].prescribed_seconds = 30;
-    expect(() => validateSeed(b)).toThrow(/cannot set both prescribed_reps and prescribed_seconds/);
+    expect(() =>
+      validateSeed({exercises: b.exercises, plans: b.plans, activities: []}),
+    ).toThrow(/cannot set both prescribed_reps and prescribed_seconds/);
   });
 
   it('rejects mismatched circuit_rounds within same circuit', () => {
     const b = bundle();
     b.plans[0].session_templates[0].exercises = [
-      {...validPrescription, order_index: 1, circuit_index: 1, circuit_rounds: 2},
-      {...validPrescription, order_index: 2, circuit_index: 1, circuit_rounds: 3},
+      {
+        ...validPrescription,
+        order_index: 1,
+        circuit_index: 1,
+        circuit_rounds: 2,
+      },
+      {
+        ...validPrescription,
+        order_index: 2,
+        circuit_index: 1,
+        circuit_rounds: 3,
+      },
     ];
-    expect(() => validateSeed(b)).toThrow(/circuit_index 1.*inconsistent circuit_rounds/);
+    expect(() =>
+      validateSeed({exercises: b.exercises, plans: b.plans, activities: []}),
+    ).toThrow(/circuit_index 1.*inconsistent circuit_rounds/);
   });
 
   it('rejects non-dense order_index', () => {
@@ -68,30 +92,53 @@ describe('validateSeed', () => {
       {...validPrescription, order_index: 1},
       {...validPrescription, order_index: 3},
     ];
-    expect(() => validateSeed(b)).toThrow(/order_index must be dense 1..N/);
+    expect(() =>
+      validateSeed({exercises: b.exercises, plans: b.plans, activities: []}),
+    ).toThrow(/order_index must be dense 1..N/);
   });
 
   it('rejects unknown session_template_slug in plan_days', () => {
     const b = bundle();
     b.plans[0].days[0].session_template_slug = 'unknown';
-    expect(() => validateSeed(b)).toThrow(/session_template_slug 'unknown' not defined/);
+    expect(() =>
+      validateSeed({exercises: b.exercises, plans: b.plans, activities: []}),
+    ).toThrow(/session_template_slug 'unknown' not defined/);
   });
 
   it('rejects duplicate exercise slugs', () => {
     const b = bundle();
     b.exercises.push(validExercise);
-    expect(() => validateSeed(b)).toThrow(/duplicate exercise slug 'vmo-squat'/);
+    expect(() =>
+      validateSeed({exercises: b.exercises, plans: b.plans, activities: []}),
+    ).toThrow(/duplicate exercise slug 'vmo-squat'/);
   });
 
   it('rejects duplicate plan slugs', () => {
     const b = bundle();
     b.plans.push({...b.plans[0]});
-    expect(() => validateSeed(b)).toThrow(/duplicate plan slug 'p1'/);
+    expect(() =>
+      validateSeed({exercises: b.exercises, plans: b.plans, activities: []}),
+    ).toThrow(/duplicate plan slug 'p1'/);
   });
 
   it('rejects circuit_index without circuit_rounds', () => {
     const b = bundle();
     b.plans[0].session_templates[0].exercises[0].circuit_index = 1;
-    expect(() => validateSeed(b)).toThrow(/circuit_index requires circuit_rounds/);
+    expect(() =>
+      validateSeed({exercises: b.exercises, plans: b.plans, activities: []}),
+    ).toThrow(/circuit_index requires circuit_rounds/);
+  });
+
+  it('rejects duplicate activity slugs', () => {
+    expect(() =>
+      validateSeed({
+        exercises: [],
+        plans: [],
+        activities: [
+          {slug: 'surf', name: 'Surf'},
+          {slug: 'surf', name: 'Surf again'},
+        ],
+      }),
+    ).toThrow(/duplicate activity slug 'surf'/);
   });
 });

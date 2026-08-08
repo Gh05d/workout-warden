@@ -1,7 +1,7 @@
 import {SQLiteDatabase, openDatabase} from 'react-native-sqlite-storage';
 import * as RNFS from '@dr.pogodin/react-native-fs';
 import {Alert} from 'react-native';
-import {EXERCISES, PLANS, SEED_REVISION} from '../seeds';
+import {ACTIVITIES, EXERCISES, PLANS, SEED_REVISION} from '../seeds';
 import {validateSeed} from './seedValidator';
 import type {
   ExercisePrescription,
@@ -173,7 +173,11 @@ async function insertTemplateExercises(
 }
 
 export async function seedDB(db: SQLiteDatabase): Promise<void> {
-  validateSeed({exercises: [...EXERCISES], plans: [...PLANS]});
+  validateSeed({
+    exercises: [...EXERCISES],
+    plans: [...PLANS],
+    activities: [...ACTIVITIES],
+  });
 
   // 0. Lightweight in-place migration: add the description column for installs
   // that pre-date its introduction. SQLite throws "duplicate column" if it
@@ -208,6 +212,15 @@ export async function seedDB(db: SQLiteDatabase): Promise<void> {
          video = excluded.video,
          description = excluded.description`,
       [ex.slug, ex.name, ex.video ?? null, ex.description ?? null],
+    );
+  }
+
+  // 1b. Upsert activities (catalogue grows, never shrinks; revision-independent)
+  for (const act of ACTIVITIES) {
+    await db.executeSql(
+      `INSERT INTO activities (slug, name) VALUES (?, ?)
+       ON CONFLICT(slug) DO UPDATE SET name = excluded.name`,
+      [act.slug, act.name],
     );
   }
 

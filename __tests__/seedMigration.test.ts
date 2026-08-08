@@ -227,4 +227,21 @@ describe('seed revision migration', () => {
         .get(),
     ).toEqual({weight: 42.5, reps: 8});
   });
+
+  it('seeds the activity catalogue and re-upserts it idempotently', async () => {
+    await initDB();
+    const rows = () =>
+      mockRaw
+        .prepare(`SELECT slug, name FROM activities ORDER BY id`)
+        .all() as {slug: string; name: string}[];
+    expect(rows()).toEqual([
+      {slug: 'surf', name: 'Surf'},
+      {slug: 'altinha', name: 'Altinha'},
+    ]);
+    await initDB();
+    expect(rows()).toEqual([
+      {slug: 'surf', name: 'Surf'},
+      {slug: 'altinha', name: 'Altinha'},
+    ]);
+  });
 });
