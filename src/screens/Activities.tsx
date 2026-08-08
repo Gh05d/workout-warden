@@ -12,7 +12,6 @@ import MaterialIcons from '@react-native-vector-icons/material-icons';
 import AppText from '../components/AppText';
 import ErrorComp from '../components/Error';
 import Loading from '../components/Loading';
-import Toast from '../components/Toast';
 import TacticalButton from '../components/TacticalButton';
 import ActivitySessionModal from '../components/ActivitySessionModal';
 import ActivityWeeklyBars from '../components/ActivityWeeklyBars';
@@ -77,6 +76,7 @@ const Activities: React.FC = () => {
   );
 
   async function handleSave(draft: ActivitySessionDraft) {
+    setError(null);
     try {
       const db = await getDBConnection();
       if (editing) await updateActivitySession(db, editing.id, draft);
@@ -90,6 +90,7 @@ const Activities: React.FC = () => {
   }
 
   async function handleDelete(id: number) {
+    setError(null);
     try {
       const db = await getDBConnection();
       await deleteActivitySession(db, id);
@@ -185,20 +186,16 @@ const Activities: React.FC = () => {
         visible={modalVisible}
         activities={activities}
         initial={editing}
+        error={error?.message ?? null}
         onSave={handleSave}
         onDelete={handleDelete}
         onClose={() => {
           setModalVisible(false);
           setEditing(null);
+          setError(null);
         }}
+        onClearError={() => setError(null)}
       />
-      {!!error && (
-        <Toast
-          type="error"
-          message={error.message}
-          onClose={() => setError(null)}
-        />
-      )}
     </View>
   );
 };

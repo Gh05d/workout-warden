@@ -93,6 +93,7 @@ export interface WeekBar {
   label: string;
   segments: {activityId: number; minutes: number}[];
   totalMinutes: number;
+  timedMinutes: number;
 }
 
 /** The last `weeksBack` ISO weeks (ending with the week of `today`) as
@@ -116,6 +117,7 @@ export function weeklyBarData(
       label: `W${isoWeekNumber(monday)}`,
       segments: [],
       totalMinutes: 0,
+      timedMinutes: 0,
     };
     bars.push(bar);
     byKey.set(bar.key, bar);
@@ -133,6 +135,7 @@ export function weeklyBarData(
     }
     seg.minutes += minutes;
     bar.totalMinutes += minutes;
+    if (s.duration_minutes != null) bar.timedMinutes += s.duration_minutes;
   }
   return bars;
 }

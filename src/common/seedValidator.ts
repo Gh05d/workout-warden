@@ -1,5 +1,5 @@
 // src/common/seedValidator.ts
-// Validates a {exercises, plans} seed bundle for internal consistency.
+// Validates a {exercises, plans, activities} seed bundle for internal consistency.
 // Throws on the first inconsistency so seed drift fails fast at startup
 // before any rows are written to SQLite.
 

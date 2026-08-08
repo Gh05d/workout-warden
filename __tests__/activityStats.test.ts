@@ -123,6 +123,7 @@ describe('weeklyBarData', () => {
       {activityId: 2, minutes: UNTIMED_PLINTH_MINUTES},
     ]);
     expect(bars[0].totalMinutes).toBe(90 + UNTIMED_PLINTH_MINUTES);
+    expect(bars[0].timedMinutes).toBe(90);
   });
 
   it('ignores sessions older than the window', () => {

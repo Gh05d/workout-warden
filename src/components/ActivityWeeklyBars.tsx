@@ -35,9 +35,9 @@ const ActivityWeeklyBars: React.FC<Props> = ({sessions}) => {
         {bars.map(bar => (
           <View key={bar.key} style={styles.barCol}>
             <View style={styles.hourWrap}>
-              {bar.totalMinutes > 0 && (
+              {bar.timedMinutes > 0 && (
                 <AppText style={styles.hourText}>
-                  {(bar.totalMinutes / 60).toFixed(1)}
+                  {(bar.timedMinutes / 60).toFixed(1)}
                 </AppText>
               )}
             </View>

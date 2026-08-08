@@ -31,9 +31,11 @@ interface Props {
   visible: boolean;
   activities: Activity[];
   initial: ActivitySession | null;
+  error?: string | null;
   onSave: (draft: ActivitySessionDraft) => void;
   onDelete: (id: number) => void;
   onClose: () => void;
+  onClearError: () => void;
 }
 
 const DURATION_CHIPS = [30, 60, 90, 120];
@@ -54,9 +56,11 @@ const ActivitySessionModal: React.FC<Props> = ({
   visible,
   activities,
   initial,
+  error,
   onSave,
   onDelete,
   onClose,
+  onClearError,
 }) => {
   const [activityId, setActivityId] = React.useState<number>(0);
   const [performedAt, setPerformedAt] = React.useState<string>('');
@@ -221,6 +225,18 @@ const ActivitySessionModal: React.FC<Props> = ({
               style={[styles.textField, styles.noteField]}
             />
 
+            {!!error && (
+              <Pressable
+                onPress={onClearError}
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss error"
+                style={styles.errorBanner}>
+                <AppText bold style={styles.errorBannerText}>
+                  {error}
+                </AppText>
+              </Pressable>
+            )}
+
             <View style={styles.footer}>
               <TacticalButton
                 title="Save"
@@ -326,6 +342,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   noteField: {minHeight: 72, textAlignVertical: 'top'},
+  errorBanner: {
+    backgroundColor: colors.warnBg,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.warn,
+    padding: 10,
+    marginTop: 16,
+  },
+  errorBannerText: {fontSize: 12, color: colors.warn, letterSpacing: 0.4},
   footer: {gap: 8, marginTop: 16},
 });
 
