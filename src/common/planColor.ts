@@ -18,11 +18,12 @@ export function planColor(planId: number): {bg: string; fg: string} {
   return PALETTE[idx];
 }
 
-// Slot pairs are identity: surf is ocean blue, altinha is the Brazilian
-// yellow-bg/green-fg pair (the combination reads as the flag).
+// Slot pairs are identity: surfing is ocean blue, altinha is all-yellow (a
+// green fg shipped once and sat too close to the ocean blue at small sizes;
+// the gold fg is ~2:1 on white — same league as the app's #FF9800 accent).
 const ACTIVITY_PALETTE: ReadonlyArray<{bg: string; fg: string}> = [
   {bg: '#B3E5FC', fg: '#0277BD'}, // ocean blue — surf
-  {bg: '#FFF59D', fg: '#388E3C'}, // Brazil yellow/green — altinha
+  {bg: '#FFF59D', fg: '#F9A825'}, // sun gold on yellow — altinha
   {bg: '#B2DFDB', fg: '#00897B'}, // teal
   {bg: '#B2EBF2', fg: '#0097A7'}, // cyan
 ];

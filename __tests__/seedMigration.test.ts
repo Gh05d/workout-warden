@@ -235,12 +235,12 @@ describe('seed revision migration', () => {
         .prepare(`SELECT slug, name FROM activities ORDER BY id`)
         .all() as {slug: string; name: string}[];
     expect(rows()).toEqual([
-      {slug: 'surf', name: 'Surf'},
+      {slug: 'surf', name: 'Surfing'},
       {slug: 'altinha', name: 'Altinha'},
     ]);
     await initDB();
     expect(rows()).toEqual([
-      {slug: 'surf', name: 'Surf'},
+      {slug: 'surf', name: 'Surfing'},
       {slug: 'altinha', name: 'Altinha'},
     ]);
   });

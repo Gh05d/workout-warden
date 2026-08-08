@@ -5,6 +5,6 @@
 import type {ActivitySeed} from '../common/types';
 
 export const ACTIVITIES: ActivitySeed[] = [
-  {slug: 'surf', name: 'Surf'},
+  {slug: 'surf', name: 'Surfing'},
   {slug: 'altinha', name: 'Altinha'},
 ];
