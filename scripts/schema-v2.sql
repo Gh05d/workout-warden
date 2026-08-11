@@ -109,6 +109,7 @@ CREATE TABLE IF NOT EXISTS activity_sessions (
   duration_minutes INTEGER,
   spot             TEXT,
   note             TEXT,
+  rating           INTEGER,
   created_at       DATETIME DEFAULT (datetime('now'))
 );
 

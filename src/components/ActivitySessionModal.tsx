@@ -19,6 +19,7 @@ import AppText from './AppText';
 import TacticalButton from './TacticalButton';
 import {colors} from '../common/theme';
 import {activityColor} from '../common/planColor';
+import {joinNotes, splitNotes, RATING_EMOJIS} from '../common/activityLog';
 import {isoDate} from './heatmapMath';
 import {parseIsoDate} from './activityStats';
 import type {
@@ -69,7 +70,8 @@ const ActivitySessionModal: React.FC<Props> = ({
   const [performedAt, setPerformedAt] = React.useState<string>('');
   const [duration, setDuration] = React.useState<string>('');
   const [spot, setSpot] = React.useState<string>('');
-  const [note, setNote] = React.useState<string>('');
+  const [notes, setNotes] = React.useState<string[]>(['']);
+  const [rating, setRating] = React.useState<number | null>(null);
 
   // Re-seed the form whenever the sheet opens (or switches session).
   React.useEffect(() => {
@@ -80,7 +82,9 @@ const ActivitySessionModal: React.FC<Props> = ({
       initial?.duration_minutes != null ? String(initial.duration_minutes) : '',
     );
     setSpot(initial?.spot ?? '');
-    setNote(initial?.note ?? '');
+    const seeded = splitNotes(initial?.note ?? null);
+    setNotes(seeded.length > 0 ? seeded : ['']);
+    setRating(initial?.rating ?? null);
   }, [visible, initial, activities]);
 
   const todayKey = isoDate(new Date());
@@ -92,13 +96,25 @@ const ActivitySessionModal: React.FC<Props> = ({
 
   const spotChips = recentSpotsByActivity.get(activityId) ?? [];
 
+  function setNoteAt(index: number, text: string) {
+    setNotes(prev => prev.map((n, i) => (i === index ? text : n)));
+  }
+
+  function removeNoteAt(index: number) {
+    setNotes(prev => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length > 0 ? next : [''];
+    });
+  }
+
   function handleSave() {
     onSave({
       activityId,
       performedAt,
       durationMinutes,
       spot: spot.trim() || null,
-      note: note.trim() || null,
+      note: joinNotes(notes),
+      rating,
     });
   }
 
@@ -175,6 +191,34 @@ const ActivitySessionModal: React.FC<Props> = ({
               </Pressable>
             </View>
 
+            <AppText style={styles.fieldLabel}>RATING</AppText>
+            <View style={styles.pillRow}>
+              {RATING_EMOJIS.map((emoji, i) => {
+                const value = i + 1;
+                const selected = rating === value;
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => setRating(selected ? null : value)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Rating ${value} of 5`}
+                    accessibilityState={{selected}}
+                    style={[
+                      styles.ratingChip,
+                      selected && styles.ratingChipSelected,
+                    ]}>
+                    <AppText
+                      style={[
+                        styles.ratingEmoji,
+                        !selected && styles.ratingEmojiDimmed,
+                      ]}>
+                      {emoji}
+                    </AppText>
+                  </Pressable>
+                );
+              })}
+            </View>
+
             <AppText style={styles.fieldLabel}>DURATION (MIN)</AppText>
             <View style={styles.pillRow}>
               {DURATION_CHIPS.map(m => {
@@ -243,17 +287,39 @@ const ActivitySessionModal: React.FC<Props> = ({
               </View>
             )}
 
-            <AppText style={styles.fieldLabel}>NOTE</AppText>
-            <TextInput
-              value={note}
-              onChangeText={setNote}
-              placeholder="Conditions, people, how it went…"
-              placeholderTextColor={colors.ghost}
-              multiline
-              numberOfLines={3}
-              accessibilityLabel="Note"
-              style={[styles.textField, styles.noteField]}
-            />
+            <AppText style={styles.fieldLabel}>NOTES</AppText>
+            {notes.map((n, i) => (
+              <View key={i} style={styles.noteRow}>
+                <TextInput
+                  value={n}
+                  onChangeText={text => setNoteAt(i, text)}
+                  placeholder="Conditions, people, how it went…"
+                  placeholderTextColor={colors.ghost}
+                  autoFocus={
+                    i === notes.length - 1 && n === '' && notes.length > 1
+                  }
+                  accessibilityLabel={`Note ${i + 1}`}
+                  style={[styles.textField, styles.noteInput]}
+                />
+                <Pressable
+                  onPress={() => removeNoteAt(i)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove note ${i + 1}`}
+                  style={styles.noteRemove}>
+                  <MaterialIcons name="remove" size={20} color={colors.ink} />
+                </Pressable>
+              </View>
+            ))}
+            <Pressable
+              onPress={() => setNotes(prev => [...prev, ''])}
+              accessibilityRole="button"
+              accessibilityLabel="Add note"
+              style={styles.noteAdd}>
+              <MaterialIcons name="add" size={18} color={colors.primary} />
+              <AppText bold style={styles.noteAddText}>
+                ADD NOTE
+              </AppText>
+            </Pressable>
 
             {!!error && (
               <Pressable
@@ -371,7 +437,32 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 14,
   },
-  noteField: {minHeight: 72, textAlignVertical: 'top'},
+  ratingChip: {
+    borderWidth: 1,
+    borderColor: colors.rule,
+    backgroundColor: colors.paper,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  ratingChipSelected: {borderColor: colors.primary, borderWidth: 1.5},
+  ratingEmoji: {fontSize: 22, lineHeight: 28},
+  ratingEmojiDimmed: {opacity: 0.35},
+  noteRow: {flexDirection: 'row', alignItems: 'center', gap: 8},
+  noteInput: {flex: 1},
+  noteRemove: {
+    borderWidth: 1,
+    borderColor: colors.rule,
+    backgroundColor: colors.paper,
+    padding: 9,
+  },
+  noteAdd: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    alignSelf: 'flex-start',
+  },
+  noteAddText: {fontSize: 11, color: colors.primary, letterSpacing: 1.4},
   errorBanner: {
     backgroundColor: colors.warnBg,
     borderLeftWidth: 4,

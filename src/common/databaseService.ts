@@ -3,6 +3,7 @@ import * as RNFS from '@dr.pogodin/react-native-fs';
 import {Alert} from 'react-native';
 import {ACTIVITIES, EXERCISES, PLANS, SEED_REVISION} from '../seeds';
 import {validateSeed} from './seedValidator';
+import {normalizeLegacyNote} from './activityLog';
 import type {
   ExercisePrescription,
   Plan,
@@ -124,6 +125,7 @@ const SCHEMA: string[] = [
      duration_minutes INTEGER,
      spot             TEXT,
      note             TEXT,
+     rating           INTEGER,
      created_at       DATETIME DEFAULT (datetime('now'))
    )`,
   `CREATE INDEX IF NOT EXISTS idx_plan_days_plan      ON plan_days(plan_id, day_index)`,
@@ -187,6 +189,40 @@ export async function seedDB(db: SQLiteDatabase): Promise<void> {
     await db.executeSql(`ALTER TABLE exercises ADD COLUMN description TEXT`);
   } catch {
     /* column already exists */
+  }
+  try {
+    await db.executeSql(
+      `ALTER TABLE activity_sessions ADD COLUMN rating INTEGER`,
+    );
+  } catch {
+    /* column already exists */
+  }
+
+  // 0c. One-shot note-list migration: notes hand-written as "- item" lines in
+  // the old multiline field lose their bullets (the list UI renders its own).
+  // Guarded by a settings key — it must never run twice, or a later note
+  // deliberately starting with "- " would get stripped as well.
+  const [noteMig] = await db.executeSql(
+    `SELECT value FROM settings WHERE key = 'note_list_migrated'`,
+  );
+  if (noteMig.rows.length === 0) {
+    const [legacy] = await db.executeSql(
+      `SELECT id, note FROM activity_sessions WHERE note IS NOT NULL`,
+    );
+    for (let i = 0; i < legacy.rows.length; i++) {
+      const row = legacy.rows.item(i);
+      const normalized = normalizeLegacyNote(row.note);
+      if (normalized !== row.note) {
+        await db.executeSql(
+          `UPDATE activity_sessions SET note = ? WHERE id = ?`,
+          [normalized.length > 0 ? normalized : null, row.id],
+        );
+      }
+    }
+    await db.executeSql(
+      `INSERT INTO settings (key, value) VALUES ('note_list_migrated', '1')
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    );
   }
 
   // 0b. Seed revision: session_templates are write-once, so a device that already
@@ -901,7 +937,7 @@ export async function fetchActivitySessions(
   const params = opts.fromDate ? [opts.fromDate] : [];
   const [res] = await db.executeSql(
     `SELECT s.id, s.activity_id, a.slug AS activity_slug, a.name AS activity_name,
-            s.performed_at, s.duration_minutes, s.spot, s.note, s.created_at
+            s.performed_at, s.duration_minutes, s.spot, s.note, s.rating, s.created_at
      FROM activity_sessions s
      JOIN activities a ON a.id = s.activity_id
      ${where}
@@ -916,14 +952,15 @@ export async function createActivitySession(
   draft: ActivitySessionDraft,
 ): Promise<number> {
   const [ins] = await db.executeSql(
-    `INSERT INTO activity_sessions (activity_id, performed_at, duration_minutes, spot, note)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO activity_sessions (activity_id, performed_at, duration_minutes, spot, note, rating)
+     VALUES (?, ?, ?, ?, ?, ?)`,
     [
       draft.activityId,
       draft.performedAt,
       draft.durationMinutes,
       draft.spot,
       draft.note,
+      draft.rating ?? null,
     ],
   );
   return ins.insertId;
@@ -955,6 +992,10 @@ export async function updateActivitySession(
   if (patch.note !== undefined) {
     fields.push('note = ?');
     params.push(patch.note);
+  }
+  if (patch.rating !== undefined) {
+    fields.push('rating = ?');
+    params.push(patch.rating);
   }
   if (fields.length === 0) return;
   params.push(id);

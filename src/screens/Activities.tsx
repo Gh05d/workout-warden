@@ -18,6 +18,7 @@ import ActivityWeeklyBars from '../components/ActivityWeeklyBars';
 
 import {colors} from '../common/theme';
 import {activityColor} from '../common/planColor';
+import {ratingEmoji, splitNotes} from '../common/activityLog';
 import {
   createActivitySession,
   deleteActivitySession,
@@ -224,9 +225,16 @@ const SessionRowComp: React.FC<{
           <AppText bold style={[styles.rowActivity, {color: c.fg}]}>
             {session.activity_name.toUpperCase()}
           </AppText>
-          <AppText style={styles.rowDate}>
-            {dayLabel(session.performed_at)}
-          </AppText>
+          <View style={styles.rowHeadRight}>
+            {!!ratingEmoji(session.rating) && (
+              <AppText style={styles.rowRating}>
+                {ratingEmoji(session.rating)}
+              </AppText>
+            )}
+            <AppText style={styles.rowDate}>
+              {dayLabel(session.performed_at)}
+            </AppText>
+          </View>
         </View>
         <View style={styles.rowMeta}>
           <AppText style={styles.rowMetaText}>
@@ -240,9 +248,12 @@ const SessionRowComp: React.FC<{
             </AppText>
           )}
         </View>
-        {!!session.note && (
-          <AppText style={styles.rowNote}>{session.note}</AppText>
-        )}
+        {splitNotes(session.note).map((line, i) => (
+          <View key={i} style={styles.rowNoteLine}>
+            <AppText style={styles.rowNoteBullet}>–</AppText>
+            <AppText style={styles.rowNote}>{line}</AppText>
+          </View>
+        ))}
       </View>
     </Pressable>
   );
@@ -284,9 +295,13 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     fontVariant: ['tabular-nums'],
   },
+  rowHeadRight: {flexDirection: 'row', alignItems: 'center', gap: 8},
+  rowRating: {fontSize: 14, lineHeight: 18},
   rowMeta: {flexDirection: 'row', gap: 12},
   rowMetaText: {fontSize: 11, color: colors.muted, letterSpacing: 1},
-  rowNote: {fontSize: 13, color: colors.ink, lineHeight: 18},
+  rowNoteLine: {flexDirection: 'row', gap: 6, alignItems: 'flex-start'},
+  rowNoteBullet: {fontSize: 13, color: colors.muted, lineHeight: 18},
+  rowNote: {flex: 1, fontSize: 13, color: colors.ink, lineHeight: 18},
   empty: {flex: 1, justifyContent: 'center', padding: 16},
   emptyCard: {
     backgroundColor: colors.paper,

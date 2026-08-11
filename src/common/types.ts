@@ -136,6 +136,7 @@ interface ActivitySession {
   duration_minutes: number | null;
   spot: string | null;
   note: string | null;
+  rating: number | null; // 1..5, UI-enforced
   created_at: string;
 }
 
@@ -146,6 +147,8 @@ interface ActivitySessionDraft {
   durationMinutes: number | null;
   spot: string | null;
   note: string | null;
+  /** Optional so pre-rating call sites stay valid; absent = no rating. */
+  rating?: number | null;
 }
 
 // ===== Navigation (unchanged from v1) =====

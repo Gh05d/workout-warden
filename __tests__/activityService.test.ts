@@ -139,6 +139,41 @@ describe('activity CRUD', () => {
     expect(await fetchActivitySessions(db)).toHaveLength(2);
   });
 
+  it('round-trips a rating through create, fetch and update', async () => {
+    const db = makeDb();
+    const id = await createActivitySession(db, {
+      activityId: 1,
+      performedAt: '2026-08-11',
+      durationMinutes: 120,
+      spot: 'Batukaras',
+      note: null,
+      rating: 4,
+    });
+    let [s] = await fetchActivitySessions(db);
+    expect(s.rating).toBe(4);
+
+    await updateActivitySession(db, id, {rating: 2});
+    [s] = await fetchActivitySessions(db);
+    expect(s.rating).toBe(2);
+
+    await updateActivitySession(db, id, {rating: null});
+    [s] = await fetchActivitySessions(db);
+    expect(s.rating).toBeNull();
+  });
+
+  it('stores no rating when the draft omits it', async () => {
+    const db = makeDb();
+    await createActivitySession(db, {
+      activityId: 1,
+      performedAt: '2026-08-11',
+      durationMinutes: null,
+      spot: null,
+      note: null,
+    });
+    const [s] = await fetchActivitySessions(db);
+    expect(s.rating).toBeNull();
+  });
+
   it('partially updates only the given fields', async () => {
     const db = makeDb();
     const id = await createActivitySession(db, {

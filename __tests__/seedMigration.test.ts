@@ -228,6 +228,39 @@ describe('seed revision migration', () => {
     ).toEqual({weight: 42.5, reps: 8});
   });
 
+  it('gives activity_sessions a rating column on a fresh install', async () => {
+    await initDB();
+    const cols = (
+      mockRaw.prepare(`PRAGMA table_info(activity_sessions)`).all() as {
+        name: string;
+      }[]
+    ).map(c => c.name);
+    expect(cols).toContain('rating');
+  });
+
+  it('adds the rating column to a pre-rating activity_sessions table', async () => {
+    // Simulate a device that created the table before rating existed —
+    // CREATE TABLE IF NOT EXISTS will keep this shape, only the ALTER helps.
+    mockRaw.exec(
+      `CREATE TABLE activity_sessions (
+         id               INTEGER PRIMARY KEY AUTOINCREMENT,
+         activity_id      INTEGER NOT NULL REFERENCES activities(id),
+         performed_at     TEXT NOT NULL,
+         duration_minutes INTEGER,
+         spot             TEXT,
+         note             TEXT,
+         created_at       DATETIME DEFAULT (datetime('now'))
+       )`,
+    );
+    await initDB();
+    const cols = (
+      mockRaw.prepare(`PRAGMA table_info(activity_sessions)`).all() as {
+        name: string;
+      }[]
+    ).map(c => c.name);
+    expect(cols).toContain('rating');
+  });
+
   it('seeds the activity catalogue and re-upserts it idempotently', async () => {
     await initDB();
     const rows = () =>
@@ -243,5 +276,51 @@ describe('seed revision migration', () => {
       {slug: 'surf', name: 'Surfing'},
       {slug: 'altinha', name: 'Altinha'},
     ]);
+  });
+});
+
+describe('activity note-list migration', () => {
+  const noteOf = (id: number) =>
+    (
+      mockRaw
+        .prepare(`SELECT note FROM activity_sessions WHERE id = ?`)
+        .get(id) as {note: string | null}
+    ).note;
+
+  function insertNote(id: number, note: string | null) {
+    mockRaw
+      .prepare(
+        `INSERT INTO activity_sessions (id, activity_id, performed_at, note)
+         VALUES (?, 1, '2026-08-06', ?)`,
+      )
+      .run(id, note);
+  }
+
+  it('strips legacy "- " bullets and leaves plain/NULL notes intact', async () => {
+    await initDB();
+    // Simulate an upgrading device: legacy-shaped rows exist, marker not set.
+    insertNote(1, '- Tons of people\n- longboard\n- maybe 4 waves surfed');
+    insertNote(2, 'With indo boys and one tourist before. Easy');
+    insertNote(3, null);
+    mockRaw
+      .prepare(`DELETE FROM settings WHERE key = 'note_list_migrated'`)
+      .run();
+
+    await initDB();
+
+    expect(noteOf(1)).toBe('Tons of people\nlongboard\nmaybe 4 waves surfed');
+    expect(noteOf(2)).toBe('With indo boys and one tourist before. Easy');
+    expect(noteOf(3)).toBeNull();
+  });
+
+  it('runs exactly once — a later note starting with "- " is never re-stripped', async () => {
+    await initDB();
+    // Written through the new list UI AFTER the migration already ran:
+    // the dash is user content, not a legacy bullet.
+    insertNote(1, '- 4 foot swell predicted');
+
+    await initDB();
+
+    expect(noteOf(1)).toBe('- 4 foot swell predicted');
   });
 });
