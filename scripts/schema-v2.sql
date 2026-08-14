@@ -62,7 +62,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   session_name  TEXT NOT NULL,
   trained_at    DATETIME,
   finished      BOOLEAN NOT NULL DEFAULT 0,
-  notes         TEXT
+  notes         TEXT,
+  kcal          INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS session_exercises (
@@ -110,6 +111,7 @@ CREATE TABLE IF NOT EXISTS activity_sessions (
   spot             TEXT,
   note             TEXT,
   rating           INTEGER,
+  kcal             INTEGER,
   created_at       DATETIME DEFAULT (datetime('now'))
 );
 

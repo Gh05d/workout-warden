@@ -83,7 +83,8 @@ const SCHEMA: string[] = [
      session_name  TEXT NOT NULL,
      trained_at    DATETIME,
      finished      BOOLEAN NOT NULL DEFAULT 0,
-     notes         TEXT
+     notes         TEXT,
+     kcal          INTEGER
    )`,
   `CREATE TABLE IF NOT EXISTS session_exercises (
      id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -126,6 +127,7 @@ const SCHEMA: string[] = [
      spot             TEXT,
      note             TEXT,
      rating           INTEGER,
+     kcal             INTEGER,
      created_at       DATETIME DEFAULT (datetime('now'))
    )`,
   `CREATE INDEX IF NOT EXISTS idx_plan_days_plan      ON plan_days(plan_id, day_index)`,
@@ -194,6 +196,18 @@ export async function seedDB(db: SQLiteDatabase): Promise<void> {
     await db.executeSql(
       `ALTER TABLE activity_sessions ADD COLUMN rating INTEGER`,
     );
+  } catch {
+    /* column already exists */
+  }
+  try {
+    await db.executeSql(
+      `ALTER TABLE activity_sessions ADD COLUMN kcal INTEGER`,
+    );
+  } catch {
+    /* column already exists */
+  }
+  try {
+    await db.executeSql(`ALTER TABLE sessions ADD COLUMN kcal INTEGER`);
   } catch {
     /* column already exists */
   }
@@ -436,25 +450,42 @@ export async function fetchPlans(db: SQLiteDatabase): Promise<Plan[]> {
   return res.rows.raw();
 }
 
+export async function getSetting(
+  db: SQLiteDatabase,
+  key: string,
+): Promise<string | null> {
+  const [res] = await db.executeSql(
+    `SELECT value FROM settings WHERE key = ?`,
+    [key],
+  );
+  if (res.rows.length === 0) return null;
+  return res.rows.item(0).value as string;
+}
+
+export async function setSetting(
+  db: SQLiteDatabase,
+  key: string,
+  value: string,
+): Promise<void> {
+  await db.executeSql(
+    `INSERT INTO settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+    [key, value],
+  );
+}
+
 export async function fetchActivePlanId(
   db: SQLiteDatabase,
 ): Promise<number | null> {
-  const [res] = await db.executeSql(
-    `SELECT value FROM settings WHERE key = 'active_plan_id'`,
-  );
-  if (res.rows.length === 0) return null;
-  return Number(res.rows.item(0).value);
+  const value = await getSetting(db, 'active_plan_id');
+  return value == null ? null : Number(value);
 }
 
 export async function setActivePlanId(
   db: SQLiteDatabase,
   planId: number,
 ): Promise<void> {
-  await db.executeSql(
-    `INSERT INTO settings (key, value) VALUES ('active_plan_id', ?)
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-    [String(planId)],
-  );
+  await setSetting(db, 'active_plan_id', String(planId));
 }
 
 export async function fetchPlanDays(
@@ -580,6 +611,7 @@ async function hydrateWeeks(
         trained_at: row.trained_at,
         finished: row.session_finished,
         notes: row.notes,
+        kcal: row.session_kcal,
         exercises: [],
       });
       sessionIds.push(row.session_id);
@@ -656,7 +688,7 @@ export async function fetchAllWeeks(db: SQLiteDatabase): Promise<Week[]> {
     `SELECT w.id AS week_id, w.plan_id, p.name AS plan_name,
             w.created_at, w.finished AS week_finished,
             s.id AS session_id, s.day_index, s.weekday_label, s.session_name,
-            s.trained_at, s.finished AS session_finished, s.notes
+            s.trained_at, s.finished AS session_finished, s.notes, s.kcal AS session_kcal
      FROM weeks w
      JOIN plans p ON p.id = w.plan_id
      LEFT JOIN sessions s ON s.week_id = w.id
@@ -673,7 +705,7 @@ export async function fetchWeeksByPlan(
     `SELECT w.id AS week_id, w.plan_id, p.name AS plan_name,
             w.created_at, w.finished AS week_finished,
             s.id AS session_id, s.day_index, s.weekday_label, s.session_name,
-            s.trained_at, s.finished AS session_finished, s.notes
+            s.trained_at, s.finished AS session_finished, s.notes, s.kcal AS session_kcal
      FROM weeks w
      JOIN plans p ON p.id = w.plan_id
      LEFT JOIN sessions s ON s.week_id = w.id
@@ -937,7 +969,7 @@ export async function fetchActivitySessions(
   const params = opts.fromDate ? [opts.fromDate] : [];
   const [res] = await db.executeSql(
     `SELECT s.id, s.activity_id, a.slug AS activity_slug, a.name AS activity_name,
-            s.performed_at, s.duration_minutes, s.spot, s.note, s.rating, s.created_at
+            s.performed_at, s.duration_minutes, s.spot, s.note, s.rating, s.kcal, s.created_at
      FROM activity_sessions s
      JOIN activities a ON a.id = s.activity_id
      ${where}
@@ -1076,7 +1108,7 @@ export async function fetchHomeSummary(
   const [weekRes] = await db.executeSql(
     `SELECT w.id AS week_id, w.created_at, w.finished AS week_finished,
             s.id AS session_id, s.day_index, s.weekday_label, s.session_name,
-            s.trained_at, s.finished AS session_finished, s.notes
+            s.trained_at, s.finished AS session_finished, s.notes, s.kcal
      FROM weeks w
      LEFT JOIN sessions s ON s.week_id = w.id
      WHERE w.plan_id = ?
@@ -1102,6 +1134,7 @@ export async function fetchHomeSummary(
       trained_at: r.trained_at,
       finished: r.session_finished,
       notes: r.notes,
+      kcal: r.kcal,
       exercises: [],
     }));
 

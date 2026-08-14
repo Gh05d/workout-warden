@@ -120,6 +120,7 @@ interface Session {
   trained_at: string | null;
   finished: 0 | 1;
   notes: string | null;
+  kcal: number | null;
   exercises: ExerciseInstance[];
 }
 
@@ -148,6 +149,7 @@ interface ActivitySession {
   spot: string | null;
   note: string | null;
   rating: number | null; // 1..5, UI-enforced
+  kcal: number | null; // snapshot, computed at save time
   created_at: string;
 }
 
