@@ -52,6 +52,17 @@ interface ActivitySeed {
   name: string;
 }
 
+/** Body profile driving calorie estimation. Stored as settings rows
+ * (profile_* keys); birthYear instead of age so it never goes stale. */
+interface UserProfile {
+  weightKg: number;
+  heightCm: number;
+  birthYear: number;
+  sex: 'male' | 'female';
+  /** Flat duration assumed for one finished plan workout. Default 60. */
+  sessionMinutes: number;
+}
+
 // ===== DB-side types (rows as returned by databaseService) =====
 
 interface Plan {
@@ -189,6 +200,7 @@ export type {
   PlanDaySeed,
   PlanSeed,
   ActivitySeed,
+  UserProfile,
   Plan,
   PlanDay,
   SetLog,
