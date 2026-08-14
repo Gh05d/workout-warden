@@ -174,7 +174,9 @@ describe('saveProfile backfill (gaps only)', () => {
     const rows = rawOf(db)
       .prepare(`SELECT id, kcal FROM activity_sessions ORDER BY id`)
       .all() as {id: number; kcal: number | null}[];
-    expect(rows[0].kcal).toBe(estimateKcal(ACTIVITY_MET.surf, 90, PROFILE, YEAR));
+    expect(rows[0].kcal).toBe(
+      estimateKcal(ACTIVITY_MET.surf, 90, PROFILE, YEAR),
+    );
     expect(rows[1].kcal).toBe(
       estimateKcal(ACTIVITY_MET.altinha, 60, PROFILE, YEAR),
     );
