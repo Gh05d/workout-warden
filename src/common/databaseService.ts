@@ -4,6 +4,12 @@ import {Alert} from 'react-native';
 import {ACTIVITIES, EXERCISES, PLANS, SEED_REVISION} from '../seeds';
 import {validateSeed} from './seedValidator';
 import {normalizeLegacyNote} from './activityLog';
+import {
+  activityMet,
+  bmrKcalPerDay,
+  estimateKcal,
+  STRENGTH_MET,
+} from './calories';
 import type {
   ExercisePrescription,
   Plan,
@@ -14,6 +20,7 @@ import type {
   Activity,
   ActivitySession,
   ActivitySessionDraft,
+  UserProfile,
 } from './types';
 import type {ActivityDayEntry} from '../components/heatmapMath';
 
@@ -486,6 +493,100 @@ export async function setActivePlanId(
   planId: number,
 ): Promise<void> {
   await setSetting(db, 'active_plan_id', String(planId));
+}
+
+// ---------- User profile ----------
+
+const PROFILE_KEYS = {
+  weightKg: 'profile_weight_kg',
+  heightCm: 'profile_height_cm',
+  birthYear: 'profile_birth_year',
+  sex: 'profile_sex',
+  sessionMinutes: 'profile_session_minutes',
+} as const;
+
+export async function fetchProfile(
+  db: SQLiteDatabase,
+): Promise<UserProfile | null> {
+  const [res] = await db.executeSql(
+    `SELECT key, value FROM settings WHERE key IN (?, ?, ?, ?, ?)`,
+    [
+      PROFILE_KEYS.weightKg,
+      PROFILE_KEYS.heightCm,
+      PROFILE_KEYS.birthYear,
+      PROFILE_KEYS.sex,
+      PROFILE_KEYS.sessionMinutes,
+    ],
+  );
+  const map = new Map<string, string>();
+  for (const row of res.rows.raw()) map.set(row.key, row.value);
+  const weightKg = Number(map.get(PROFILE_KEYS.weightKg));
+  const heightCm = Number(map.get(PROFILE_KEYS.heightCm));
+  const birthYear = Number(map.get(PROFILE_KEYS.birthYear));
+  const sex = map.get(PROFILE_KEYS.sex);
+  if (
+    !Number.isFinite(weightKg) ||
+    weightKg <= 0 ||
+    !Number.isFinite(heightCm) ||
+    heightCm <= 0 ||
+    !Number.isFinite(birthYear) ||
+    birthYear <= 0 ||
+    (sex !== 'male' && sex !== 'female')
+  ) {
+    return null;
+  }
+  const sessionMinutes = Number(map.get(PROFILE_KEYS.sessionMinutes));
+  return {
+    weightKg,
+    heightCm,
+    birthYear,
+    sex,
+    sessionMinutes:
+      Number.isFinite(sessionMinutes) && sessionMinutes > 0
+        ? sessionMinutes
+        : 60,
+  };
+}
+
+/** Persists the profile, then backfills kcal snapshots for rows that never
+ * had one (kcal IS NULL). Existing snapshots are deliberately untouched —
+ * per-entry kcal is frozen at write time; profile edits only fill gaps. */
+export async function saveProfile(
+  db: SQLiteDatabase,
+  profile: UserProfile,
+): Promise<void> {
+  await setSetting(db, PROFILE_KEYS.weightKg, String(profile.weightKg));
+  await setSetting(db, PROFILE_KEYS.heightCm, String(profile.heightCm));
+  await setSetting(db, PROFILE_KEYS.birthYear, String(profile.birthYear));
+  await setSetting(db, PROFILE_KEYS.sex, profile.sex);
+  await setSetting(
+    db,
+    PROFILE_KEYS.sessionMinutes,
+    String(profile.sessionMinutes),
+  );
+
+  const year = new Date().getFullYear();
+  const activities = await fetchActivities(db);
+  for (const a of activities) {
+    const perMinute =
+      (activityMet(a.slug) * bmrKcalPerDay(profile, year)) / 24 / 60;
+    await db.executeSql(
+      `UPDATE activity_sessions
+       SET kcal = CAST(ROUND(duration_minutes * ?) AS INTEGER)
+       WHERE kcal IS NULL AND duration_minutes IS NOT NULL AND activity_id = ?`,
+      [perMinute, a.id],
+    );
+  }
+  const sessionKcal = estimateKcal(
+    STRENGTH_MET,
+    profile.sessionMinutes,
+    profile,
+    year,
+  );
+  await db.executeSql(
+    `UPDATE sessions SET kcal = ? WHERE kcal IS NULL AND finished = 1`,
+    [sessionKcal],
+  );
 }
 
 export async function fetchPlanDays(

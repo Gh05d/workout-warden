@@ -17,7 +17,11 @@ import {
   fetchHomeSummary,
   getSetting,
   setSetting,
+  fetchProfile,
+  saveProfile,
 } from '../src/common/databaseService';
+import {estimateKcal, STRENGTH_MET, ACTIVITY_MET} from '../src/common/calories';
+import type {UserProfile} from '../src/common/types';
 
 const schemaSql = readFileSync(
   resolve(__dirname, '../scripts/schema-v2.sql'),
@@ -115,5 +119,84 @@ describe('kcal columns', () => {
     );
     const summary = await fetchHomeSummary(db);
     expect(summary!.currentWeek!.sessions[0].kcal).toBe(303);
+  });
+});
+
+const PROFILE: UserProfile = {
+  weightKg: 80,
+  heightCm: 180,
+  birthYear: 1990,
+  sex: 'male',
+  sessionMinutes: 60,
+};
+const YEAR = new Date().getFullYear();
+
+describe('fetchProfile / saveProfile', () => {
+  it('returns null when no profile is stored', async () => {
+    const db = makeDb();
+    expect(await fetchProfile(db)).toBeNull();
+  });
+
+  it('returns null while the profile is incomplete', async () => {
+    const db = makeDb();
+    await setSetting(db, 'profile_weight_kg', '80');
+    await setSetting(db, 'profile_height_cm', '180');
+    expect(await fetchProfile(db)).toBeNull();
+  });
+
+  it('round-trips a saved profile', async () => {
+    const db = makeDb();
+    await saveProfile(db, PROFILE);
+    expect(await fetchProfile(db)).toEqual(PROFILE);
+  });
+
+  it('defaults sessionMinutes to 60 when the key is missing', async () => {
+    const db = makeDb();
+    await setSetting(db, 'profile_weight_kg', '80');
+    await setSetting(db, 'profile_height_cm', '180');
+    await setSetting(db, 'profile_birth_year', '1990');
+    await setSetting(db, 'profile_sex', 'male');
+    expect((await fetchProfile(db))!.sessionMinutes).toBe(60);
+  });
+});
+
+describe('saveProfile backfill (gaps only)', () => {
+  it('fills timed activity rows without kcal, per-activity MET', async () => {
+    const db = makeDb();
+    rawOf(db).exec(
+      `INSERT INTO activity_sessions (id, activity_id, performed_at, duration_minutes, kcal) VALUES
+         (1, 1, '2026-08-01', 90, NULL),
+         (2, 2, '2026-08-02', 60, NULL),
+         (3, 1, '2026-08-03', NULL, NULL),
+         (4, 1, '2026-08-04', 60, 999)`,
+    );
+    await saveProfile(db, PROFILE);
+    const rows = rawOf(db)
+      .prepare(`SELECT id, kcal FROM activity_sessions ORDER BY id`)
+      .all() as {id: number; kcal: number | null}[];
+    expect(rows[0].kcal).toBe(estimateKcal(ACTIVITY_MET.surf, 90, PROFILE, YEAR));
+    expect(rows[1].kcal).toBe(
+      estimateKcal(ACTIVITY_MET.altinha, 60, PROFILE, YEAR),
+    );
+    expect(rows[2].kcal).toBeNull(); // untimed stays unknown
+    expect(rows[3].kcal).toBe(999); // existing snapshot untouched
+  });
+
+  it('fills finished plan sessions with the flat estimate, skips unfinished', async () => {
+    const db = makeDb();
+    rawOf(db).exec(`INSERT INTO weeks (id, plan_id) VALUES (1, 1)`);
+    rawOf(db).exec(
+      `INSERT INTO sessions (id, week_id, day_index, session_name, finished, kcal) VALUES
+         (10, 1, 1, 'Lower', 1, NULL),
+         (11, 1, 2, 'Upper', 0, NULL),
+         (12, 1, 3, 'Lower', 1, 777)`,
+    );
+    await saveProfile(db, PROFILE);
+    const rows = rawOf(db)
+      .prepare(`SELECT id, kcal FROM sessions ORDER BY id`)
+      .all() as {id: number; kcal: number | null}[];
+    expect(rows[0].kcal).toBe(estimateKcal(STRENGTH_MET, 60, PROFILE, YEAR));
+    expect(rows[1].kcal).toBeNull();
+    expect(rows[2].kcal).toBe(777);
   });
 });
