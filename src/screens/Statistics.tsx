@@ -15,9 +15,12 @@ import {colors} from '../common/theme';
 import {
   fetchAllExerciseSlugs,
   fetchExerciseStats,
+  fetchKcalTotals,
   getDBConnection,
+  type KcalTotals,
   type StatsPoint,
 } from '../common/databaseService';
+import {formatKcal} from '../common/calories';
 import type {BaseProps} from '../common/types';
 
 interface ChartPoint {
@@ -54,6 +57,7 @@ const Statistics: React.FC<BaseProps> = () => {
   const [data, setData] = React.useState<ChartPoint[]>([]);
   const [metric, setMetric] = React.useState<Metric>('weight');
   const [selected, setSelected] = React.useState<string | null>(null);
+  const [kcalTotals, setKcalTotals] = React.useState<KcalTotals | null>(null);
 
   const font = useFont(roboto, 12);
   const {height} = useWindowDimensions();
@@ -63,6 +67,7 @@ const Statistics: React.FC<BaseProps> = () => {
       try {
         const db = await getDBConnection();
         setExercises(await fetchAllExerciseSlugs(db));
+        setKcalTotals(await fetchKcalTotals(db));
       } catch (err) {
         setError(err as Error);
       } finally {
@@ -109,6 +114,25 @@ const Statistics: React.FC<BaseProps> = () => {
   return (
     <View style={styles.root}>
       <AppPicker onSelect={onSelect} items={exercises.map(e => e.name)} />
+
+      {kcalTotals != null && kcalTotals.total > 0 && (
+        <View style={styles.kcalCard}>
+          <View style={styles.kcalRow}>
+            <AppText style={styles.kcalLabel}>TOTAL BURNED</AppText>
+            <AppText bold style={styles.kcalTotal}>
+              {`~${formatKcal(kcalTotals.total)} KCAL`}
+            </AppText>
+          </View>
+          <View style={styles.kcalRow}>
+            <AppText style={styles.kcalSub}>
+              {`TRAINING ~${formatKcal(kcalTotals.training)}`}
+            </AppText>
+            <AppText style={styles.kcalSub}>
+              {`ACTIVITIES ~${formatKcal(kcalTotals.activities)}`}
+            </AppText>
+          </View>
+        </View>
+      )}
 
       {selected != null && data.length === 0 && (
         <View style={styles.empty}>
@@ -176,6 +200,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1.4,
     textAlign: 'center',
+  },
+  kcalCard: {
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.rule,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 6,
+  },
+  kcalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  kcalLabel: {fontSize: 11, letterSpacing: 2, color: colors.faint},
+  kcalTotal: {
+    fontSize: 13,
+    letterSpacing: 1.4,
+    color: colors.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  kcalSub: {
+    fontSize: 10,
+    letterSpacing: 1,
+    color: colors.muted,
+    fontVariant: ['tabular-nums'],
   },
 });
 
