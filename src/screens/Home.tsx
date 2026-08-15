@@ -16,6 +16,7 @@ import Loading from '../components/Loading';
 import NextSessionCard from '../components/NextSessionCard';
 import PlanCard from '../components/PlanCard';
 import PlanSwitcherModal from '../components/PlanSwitcherModal';
+import ProfileModal from '../components/ProfileModal';
 import ProgressCard from '../components/ProgressCard';
 import TacticalButton from '../components/TacticalButton';
 import Toast from '../components/Toast';
@@ -39,9 +40,11 @@ import {
   fetchHomeSummary,
   fetchPlanDays,
   fetchPlans,
+  fetchProfile,
   getDBConnection,
   importDatabase,
   initDB,
+  saveProfile,
   setActivePlanId,
 } from '../common/databaseService';
 import type {
@@ -50,6 +53,7 @@ import type {
   Plan,
   PlanDay,
   Session,
+  UserProfile,
   Week,
 } from '../common/types';
 import type {
@@ -75,6 +79,9 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
   const [modalVisible, setModalVisible] = React.useState(false);
   const [submitting, setSubmitting] = React.useState(false);
   const [toastError, setToastError] = React.useState<string | null>(null);
+  const [profile, setProfile] = React.useState<UserProfile | null>(null);
+  const [profileVisible, setProfileVisible] = React.useState(false);
+  const [profileError, setProfileError] = React.useState<string | null>(null);
 
   const refresh = React.useCallback(async () => {
     const db = await getDBConnection();
@@ -84,24 +91,26 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
     heatmapFrom.setDate(heatmapFrom.getDate() - 15 * 7);
     const fromKey = isoDate(heatmapFrom);
 
-    let [s, p, h, ah, acts] = await Promise.all([
+    let [s, p, h, ah, acts, prof] = await Promise.all([
       fetchHomeSummary(db),
       fetchPlans(db),
       fetchHeatmapData(db, fromKey),
       fetchActivityHeatmapData(db, fromKey),
       fetchActivities(db),
+      fetchProfile(db),
     ]);
     // Self-heal: an imported DB may be missing the active_plan_id setting
     // and/or the Surf/Strength seed plans. Re-run initDB once to repair.
     if (s == null) {
       await initDB();
       const db2 = await getDBConnection();
-      [s, p, h, ah, acts] = await Promise.all([
+      [s, p, h, ah, acts, prof] = await Promise.all([
         fetchHomeSummary(db2),
         fetchPlans(db2),
         fetchHeatmapData(db2, fromKey),
         fetchActivityHeatmapData(db2, fromKey),
         fetchActivities(db2),
+        fetchProfile(db2),
       ]);
     }
     // plan_days is the *recurring* weekly schedule, which maps onto any calendar
@@ -115,6 +124,7 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
     setPlanDays(days);
     setActivityHeat(ah);
     setActivities(acts);
+    setProfile(prof);
   }, []);
 
   const scheduledWeekdays = React.useMemo(
@@ -159,6 +169,18 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
       await refresh();
     } catch (err) {
       setToastError((err as Error).message);
+    }
+  }
+
+  async function handleSaveProfile(p: UserProfile) {
+    setProfileError(null);
+    try {
+      const db = await getDBConnection();
+      await saveProfile(db, p);
+      setProfileVisible(false);
+      await refresh();
+    } catch (err) {
+      setProfileError((err as Error).message);
     }
   }
 
@@ -333,6 +355,16 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
               }}
             />
           </View>
+          <View style={{flex: 1}}>
+            <TacticalButton
+              title="Profile"
+              icon="person"
+              variant="outline"
+              disabled={submitting}
+              fullWidth
+              onPress={() => setProfileVisible(true)}
+            />
+          </View>
         </View>
       </View>
 
@@ -342,6 +374,18 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
         activePlanId={summary?.activePlan.id ?? -1}
         onSelect={handleSelectPlan}
         onClose={() => setModalVisible(false)}
+      />
+
+      <ProfileModal
+        visible={profileVisible}
+        initial={profile}
+        error={profileError}
+        onSave={handleSaveProfile}
+        onClose={() => {
+          setProfileVisible(false);
+          setProfileError(null);
+        }}
+        onClearError={() => setProfileError(null)}
       />
 
       {!!toastError && (
