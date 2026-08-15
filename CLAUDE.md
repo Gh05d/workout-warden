@@ -57,7 +57,7 @@ There is no schema versioning framework. New columns are added via the idempoten
 **User-data side** (created when the user adds a week):
 
 - `weeks` — one row per training week, linked to a `plan_id`. Has `created_at` and `finished` (set to 1 automatically when all of the week's sessions are finished — see `finishSession`).
-- `sessions` — one row per scheduled session within a week. Stores the resolved `session_name`, `day_index`, optional `weekday_label`, plus `trained_at` and `finished`. `ON DELETE CASCADE` from `weeks`.
+- `sessions` — one row per scheduled session within a week. Stores the resolved `session_name`, `day_index`, optional `weekday_label`, plus `trained_at` and `finished`. `ON DELETE CASCADE` from `weeks`. Nullable kcal snapshot (see "Calorie estimation").
 - `session_exercises` — a *copy* of the template prescription at the moment the week was created. Carries the same prescription fields plus a `finished` flag. Copying decouples user history from later seed edits.
 - `sets` — recorded `weight` / `reps` / `seconds` per session_exercise. `(session_exercise_id, set_index)` is unique. Rows are pre-inserted empty when the week is created (one per `prescribed_sets`), then mutated in place by `updateSet`.
 
@@ -65,7 +65,7 @@ There is no schema versioning framework. New columns are added via the idempoten
 
 - `settings` — key/value store. Currently used only for `active_plan_id`.
 - `activities` — free-form activity catalogue (surf, altinha), seeded from `src/seeds/activities.ts` and upserted by `slug` on every start like `exercises` — grows over releases, never gated by `SEED_REVISION`.
-- `activity_sessions` — one row per logged activity occurrence: local-date `performed_at` (a plain `YYYY-MM-DD` string, never `new Date('YYYY-MM-DD')` — see `parseIsoDate`), nullable `duration_minutes` / `spot` / `note`. Multiple rows per day are expected (two surf sessions in a morning). No FK into `plans`/`weeks`/`sessions` — activities are logged independently of the plan system. DDL here must stay in sync with `scripts/schema-v2.sql`.
+- `activity_sessions` — one row per logged activity occurrence: local-date `performed_at` (a plain `YYYY-MM-DD` string, never `new Date('YYYY-MM-DD')` — see `parseIsoDate`), nullable `duration_minutes` / `spot` / `note`. Multiple rows per day are expected (two surf sessions in a morning). No FK into `plans`/`weeks`/`sessions` — activities are logged independently of the plan system. DDL here must stay in sync with `scripts/schema-v2.sql`. Nullable kcal snapshot, computed at save time.
 
 Indexes back the lookup paths used by `fetchWeeksByPlan`, the Statistics SQL, and `fetchPlanDays` (see end of `SCHEMA` block).
 
@@ -145,6 +145,25 @@ Every CRUD function takes a `SQLiteDatabase` as its first argument; callers grab
 4. Re-IDs exercises, weeks, sessions, session_exercises, and sets, preserving `weight` / `reps` / `finished` / `trained_at` (using the program's `end_date` as a fallback).
 
 The script is meant to run once on a developer machine, producing a `warden.db` the user can side-load via the in-app import. It is not invoked by the app at runtime.
+
+### Calorie estimation
+
+Approximate burn via the BMR-corrected MET formula in `src/common/calories.ts`
+(pure module, no RN imports; MET values are TS constants there, deliberately
+not seeded — `__tests__/calories.test.ts` keeps the map in sync with the
+activities seed). The user profile (weight/height/birth year/sex + flat
+per-workout duration) lives in `settings` as `profile_*` keys via the generic
+`getSetting`/`setSetting`; `fetchProfile` returns null until all four BMR
+fields are set, and the ProfileModal on Home is the only editor.
+
+kcal is a **snapshot column** (`activity_sessions.kcal`, `sessions.kcal`),
+written by `createActivitySession`/`updateActivitySession` (recomputed on
+every save) and `finishSession` (flat `profile_session_minutes` ×
+`STRENGTH_MET`). `saveProfile` backfills gaps only (`kcal IS NULL`) — existing
+snapshots are frozen by design; NULL means "unknown", never 0 (untimed
+activities stay NULL). Rendered values always carry a `~` prefix. Aggregates:
+`fetchTodayKcal` (Home line, in BOTH refresh fan-outs), `fetchKcalTotals`
+(Statistics), week sums in `activityStats.ActivityTotals.kcal`.
 
 ### UI conventions
 
