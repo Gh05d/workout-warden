@@ -247,6 +247,11 @@ const SessionRowComp: React.FC<{
               {session.spot.toUpperCase()}
             </AppText>
           )}
+          {session.kcal != null && (
+            <AppText style={styles.rowMetaText}>
+              {`~${session.kcal} KCAL`}
+            </AppText>
+          )}
         </View>
         {splitNotes(session.note).map((line, i) => (
           <View key={i} style={styles.rowNoteLine}>

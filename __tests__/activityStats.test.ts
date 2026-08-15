@@ -18,6 +18,8 @@ function sess(over: Partial<ActivitySession>): ActivitySession {
     duration_minutes: null,
     spot: null,
     note: null,
+    rating: null,
+    kcal: null,
     created_at: '2026-08-05 12:00:00',
     ...over,
   };
@@ -55,8 +57,8 @@ describe('groupByIsoWeek', () => {
     expect(groups[0].label).toBe('W32 2026');
     expect(groups[0].sessions.map(s => s.id)).toEqual([3, 2]);
     expect(groups[0].totals).toEqual([
-      {activityId: 1, activityName: 'Surf', count: 1, minutes: 90},
-      {activityId: 2, activityName: 'Altinha', count: 1, minutes: 120},
+      {activityId: 1, activityName: 'Surf', count: 1, minutes: 90, kcal: 0},
+      {activityId: 2, activityName: 'Altinha', count: 1, minutes: 120, kcal: 0},
     ]);
   });
 
@@ -66,7 +68,7 @@ describe('groupByIsoWeek', () => {
       sess({id: 2, duration_minutes: null}),
     ]);
     expect(g.totals).toEqual([
-      {activityId: 1, activityName: 'Surf', count: 2, minutes: 60},
+      {activityId: 1, activityName: 'Surf', count: 2, minutes: 60, kcal: 0},
     ]);
   });
 });
@@ -79,6 +81,77 @@ describe('formatTotals', () => {
         {activityId: 2, activityName: 'Altinha', count: 1, minutes: 0},
       ]),
     ).toBe('SURF 3× / 5.0H · ALTINHA 1×');
+  });
+});
+
+describe('kcal week totals', () => {
+  const base = {
+    activity_slug: 'surf',
+    activity_name: 'Surf',
+    spot: null,
+    note: null,
+    rating: null,
+    created_at: '',
+  };
+
+  it('groupByIsoWeek sums kcal per activity, treating null as 0', () => {
+    const groups = groupByIsoWeek([
+      {
+        ...base,
+        id: 1,
+        activity_id: 1,
+        performed_at: '2026-08-04',
+        duration_minutes: 90,
+        kcal: 455,
+      },
+      {
+        ...base,
+        id: 2,
+        activity_id: 1,
+        performed_at: '2026-08-05',
+        duration_minutes: 60,
+        kcal: 300,
+      },
+      {
+        ...base,
+        id: 3,
+        activity_id: 1,
+        performed_at: '2026-08-06',
+        duration_minutes: null,
+        kcal: null,
+      },
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].totals[0].kcal).toBe(755);
+  });
+
+  it('formatTotals appends the kcal sum when > 0', () => {
+    expect(
+      formatTotals([
+        {
+          activityId: 1,
+          activityName: 'Surf',
+          count: 2,
+          minutes: 150,
+          kcal: 755,
+        },
+        {
+          activityId: 2,
+          activityName: 'Altinha',
+          count: 1,
+          minutes: 0,
+          kcal: 0,
+        },
+      ]),
+    ).toBe('SURF 2× / 2.5H · ALTINHA 1× · ~755 KCAL');
+  });
+
+  it('formatTotals stays unchanged when no kcal is known', () => {
+    expect(
+      formatTotals([
+        {activityId: 1, activityName: 'Surf', count: 1, minutes: 60, kcal: 0},
+      ]),
+    ).toBe('SURF 1× / 1.0H');
   });
 });
 

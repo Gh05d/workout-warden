@@ -27,6 +27,7 @@ export interface ActivityTotals {
   activityName: string;
   count: number;
   minutes: number;
+  kcal: number;
 }
 
 export interface WeekGroup {
@@ -66,24 +67,28 @@ export function groupByIsoWeek(sessions: ActivitySession[]): WeekGroup[] {
         activityName: s.activity_name,
         count: 0,
         minutes: 0,
+        kcal: 0,
       };
       group.totals.push(t);
       group.totals.sort((a, b) => a.activityId - b.activityId);
     }
     t.count += 1;
     t.minutes += s.duration_minutes ?? 0;
+    t.kcal += s.kcal ?? 0;
   }
   return Array.from(map.values());
 }
 
-/** 'SURF 3× / 5.0H · ALTINHA 1×' — hours omitted when nothing was timed. */
+/** 'SURF 3× / 5.0H · ALTINHA 1× · ~1240 KCAL' — hours omitted when nothing
+ * was timed, kcal omitted when no snapshot is known. */
 export function formatTotals(totals: ActivityTotals[]): string {
-  return totals
-    .map(t => {
-      const hours = t.minutes > 0 ? ` / ${(t.minutes / 60).toFixed(1)}H` : '';
-      return `${t.activityName.toUpperCase()} ${t.count}×${hours}`;
-    })
-    .join(' · ');
+  const parts = totals.map(t => {
+    const hours = t.minutes > 0 ? ` / ${(t.minutes / 60).toFixed(1)}H` : '';
+    return `${t.activityName.toUpperCase()} ${t.count}×${hours}`;
+  });
+  const kcal = totals.reduce((sum, t) => sum + (t.kcal ?? 0), 0);
+  if (kcal > 0) parts.push(`~${kcal} KCAL`);
+  return parts.join(' · ');
 }
 
 export const UNTIMED_PLINTH_MINUTES = 15;
