@@ -113,26 +113,28 @@ const Statistics: React.FC<BaseProps> = () => {
 
   return (
     <View style={styles.root}>
-      <AppPicker onSelect={onSelect} items={exercises.map(e => e.name)} />
+      <View style={{gap: 16}}>
+        <AppPicker onSelect={onSelect} items={exercises.map(e => e.name)} />
 
-      {kcalTotals != null && kcalTotals.total > 0 && (
-        <View style={styles.kcalCard}>
-          <View style={styles.kcalRow}>
-            <AppText style={styles.kcalLabel}>TOTAL BURNED</AppText>
-            <AppText bold style={styles.kcalTotal}>
-              {`~${formatKcal(kcalTotals.total)} KCAL`}
-            </AppText>
+        {kcalTotals != null && kcalTotals.total > 0 && (
+          <View style={styles.kcalCard}>
+            <View style={styles.kcalRow}>
+              <AppText style={styles.kcalLabel}>TOTAL BURNED</AppText>
+              <AppText bold style={styles.kcalTotal}>
+                {`~${formatKcal(kcalTotals.total)} KCAL`}
+              </AppText>
+            </View>
+            <View style={styles.kcalRow}>
+              <AppText style={styles.kcalSub}>
+                {`TRAINING ~${formatKcal(kcalTotals.training)}`}
+              </AppText>
+              <AppText style={styles.kcalSub}>
+                {`ACTIVITIES ~${formatKcal(kcalTotals.activities)}`}
+              </AppText>
+            </View>
           </View>
-          <View style={styles.kcalRow}>
-            <AppText style={styles.kcalSub}>
-              {`TRAINING ~${formatKcal(kcalTotals.training)}`}
-            </AppText>
-            <AppText style={styles.kcalSub}>
-              {`ACTIVITIES ~${formatKcal(kcalTotals.activities)}`}
-            </AppText>
-          </View>
-        </View>
-      )}
+        )}
+      </View>
 
       {selected != null && data.length === 0 && (
         <View style={styles.empty}>
