@@ -44,7 +44,8 @@ export function bmrKcalPerDay(
 }
 
 /** Rounded kcal for `minutes` at `met`, or null when profile/duration is
- * missing — NULL means "unknown", never 0. */
+ * missing, or the computed estimate is not positive (an implausible profile
+ * can drive BMR negative) — NULL means "unknown", never 0 or negative. */
 export function estimateKcal(
   met: number,
   minutes: number | null,
@@ -52,9 +53,10 @@ export function estimateKcal(
   currentYear: number,
 ): number | null {
   if (profile == null || minutes == null || minutes <= 0) return null;
-  return Math.round(
+  const kcal = Math.round(
     ((met * bmrKcalPerDay(profile, currentYear)) / 24) * (minutes / 60),
   );
+  return kcal > 0 ? kcal : null;
 }
 
 /** '455' or '123.5K' — compact display for large totals. */

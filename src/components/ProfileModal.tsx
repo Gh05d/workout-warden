@@ -65,11 +65,13 @@ const ProfileModal: React.FC<Props> = ({
 
   const valid =
     Number.isFinite(weightKg) &&
-    weightKg > 0 &&
+    weightKg >= 20 &&
+    weightKg <= 300 &&
     Number.isFinite(heightCm) &&
-    heightCm > 0 &&
+    heightCm >= 100 &&
+    heightCm <= 250 &&
     Number.isFinite(birthYearNum) &&
-    birthYearNum >= 1900 &&
+    birthYearNum >= 1920 &&
     birthYearNum <= currentYear &&
     sex != null &&
     Number.isFinite(sessionNum) &&
@@ -169,6 +171,9 @@ const ProfileModal: React.FC<Props> = ({
                 return (
                   <Pressable
                     key={m}
+                    // Unlike ActivitySessionModal's DURATION_CHIPS, no
+                    // toggle-off here: sessionMinutes must never be blank
+                    // (validation requires it > 0).
                     onPress={() => setSessionMinutes(String(m))}
                     accessibilityRole="button"
                     accessibilityState={{selected}}

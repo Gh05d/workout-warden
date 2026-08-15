@@ -2,6 +2,7 @@
 import React from 'react';
 import {StyleSheet, View, useWindowDimensions} from 'react-native';
 import {CartesianChart, Bar, Line} from 'victory-native';
+import {useFocusEffect} from '@react-navigation/native';
 import roboto from '../../assets/Roboto-Medium.ttf';
 import {LinearGradient, useFont, vec} from '@shopify/react-native-skia';
 
@@ -67,7 +68,6 @@ const Statistics: React.FC<BaseProps> = () => {
       try {
         const db = await getDBConnection();
         setExercises(await fetchAllExerciseSlugs(db));
-        setKcalTotals(await fetchKcalTotals(db));
       } catch (err) {
         setError(err as Error);
       } finally {
@@ -75,6 +75,19 @@ const Statistics: React.FC<BaseProps> = () => {
       }
     })();
   }, []);
+
+  // Statistics is a lazily-mounted bottom-tab screen that never unmounts, so
+  // the kcal total must refresh on every focus, not just first mount —
+  // otherwise it's frozen at whatever it read on first visit (and stays
+  // hidden forever if that visit predates the user setting a profile).
+  useFocusEffect(
+    React.useCallback(() => {
+      (async () => {
+        const db = await getDBConnection();
+        setKcalTotals(await fetchKcalTotals(db));
+      })();
+    }, []),
+  );
 
   async function onSelect(name: string) {
     const found = exercises.find(e => e.name === name);

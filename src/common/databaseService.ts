@@ -566,14 +566,17 @@ export async function saveProfile(
   );
 
   const year = new Date().getFullYear();
+  const bmr = bmrKcalPerDay(profile, year);
   const activities = await fetchActivities(db);
   for (const a of activities) {
-    const perMinute =
-      (activityMet(a.slug) * bmrKcalPerDay(profile, year)) / 24 / 60;
+    const perMinute = (activityMet(a.slug) * bmr) / 24 / 60;
+    // A nonsense profile (e.g. drives BMR negative) must not write 0/negative
+    // kcal over existing NULLs — skip the backfill for this activity entirely.
+    if (!(perMinute > 0)) continue;
     await db.executeSql(
       `UPDATE activity_sessions
        SET kcal = CAST(ROUND(duration_minutes * ?) AS INTEGER)
-       WHERE kcal IS NULL AND duration_minutes IS NOT NULL AND activity_id = ?`,
+       WHERE kcal IS NULL AND duration_minutes IS NOT NULL AND duration_minutes > 0 AND activity_id = ?`,
       [perMinute, a.id],
     );
   }
@@ -583,10 +586,14 @@ export async function saveProfile(
     profile,
     year,
   );
-  await db.executeSql(
-    `UPDATE sessions SET kcal = ? WHERE kcal IS NULL AND finished = 1`,
-    [sessionKcal],
-  );
+  // estimateKcal returns null for the same nonsense-profile case — writing
+  // NULL over NULL is harmless, but skip the UPDATE outright for clarity.
+  if (sessionKcal != null) {
+    await db.executeSql(
+      `UPDATE sessions SET kcal = ? WHERE kcal IS NULL AND finished = 1`,
+      [sessionKcal],
+    );
+  }
 }
 
 export async function fetchPlanDays(
@@ -1086,7 +1093,7 @@ export interface KcalTotals {
 export async function fetchKcalTotals(db: SQLiteDatabase): Promise<KcalTotals> {
   const [res] = await db.executeSql(
     `SELECT
-       (SELECT COALESCE(SUM(kcal), 0) FROM sessions) AS training,
+       (SELECT COALESCE(SUM(kcal), 0) FROM sessions WHERE finished = 1) AS training,
        (SELECT COALESCE(SUM(kcal), 0) FROM activity_sessions) AS activities`,
   );
   const r = res.rows.item(0);

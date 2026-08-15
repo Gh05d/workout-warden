@@ -261,6 +261,50 @@ describe('seed revision migration', () => {
     expect(cols).toContain('rating');
   });
 
+  it('adds the kcal column to activity_sessions and sessions on upgrade', async () => {
+    // Simulate a device on the pre-kcal-branch schema: activity_sessions
+    // already has `rating` (added in an earlier release) but neither table
+    // has `kcal` yet — CREATE TABLE IF NOT EXISTS will keep this shape, only
+    // the ALTERs help.
+    mockRaw.exec(
+      `CREATE TABLE activity_sessions (
+         id               INTEGER PRIMARY KEY AUTOINCREMENT,
+         activity_id      INTEGER NOT NULL REFERENCES activities(id),
+         performed_at     TEXT NOT NULL,
+         duration_minutes INTEGER,
+         spot             TEXT,
+         note             TEXT,
+         rating           INTEGER,
+         created_at       DATETIME DEFAULT (datetime('now'))
+       )`,
+    );
+    mockRaw.exec(
+      `CREATE TABLE sessions (
+         id            INTEGER PRIMARY KEY AUTOINCREMENT,
+         week_id       INTEGER NOT NULL REFERENCES weeks(id) ON DELETE CASCADE,
+         day_index     INTEGER NOT NULL,
+         weekday_label TEXT,
+         session_name  TEXT NOT NULL,
+         trained_at    DATETIME,
+         finished      BOOLEAN NOT NULL DEFAULT 0,
+         notes         TEXT
+       )`,
+    );
+    await initDB();
+    const activityCols = (
+      mockRaw.prepare(`PRAGMA table_info(activity_sessions)`).all() as {
+        name: string;
+      }[]
+    ).map(c => c.name);
+    const sessionCols = (
+      mockRaw.prepare(`PRAGMA table_info(sessions)`).all() as {
+        name: string;
+      }[]
+    ).map(c => c.name);
+    expect(activityCols).toContain('kcal');
+    expect(sessionCols).toContain('kcal');
+  });
+
   it('seeds the activity catalogue and re-upserts it idempotently', async () => {
     await initDB();
     const rows = () =>

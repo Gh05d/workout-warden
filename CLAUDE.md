@@ -63,7 +63,7 @@ There is no schema versioning framework. New columns are added via the idempoten
 
 **Other:**
 
-- `settings` — key/value store. Currently used only for `active_plan_id`.
+- `settings` — key/value store: `active_plan_id`, `seed_revision`, and the `profile_*` keys (see "Calorie estimation").
 - `activities` — free-form activity catalogue (surf, altinha), seeded from `src/seeds/activities.ts` and upserted by `slug` on every start like `exercises` — grows over releases, never gated by `SEED_REVISION`.
 - `activity_sessions` — one row per logged activity occurrence: local-date `performed_at` (a plain `YYYY-MM-DD` string, never `new Date('YYYY-MM-DD')` — see `parseIsoDate`), nullable `duration_minutes` / `spot` / `note`. Multiple rows per day are expected (two surf sessions in a morning). No FK into `plans`/`weeks`/`sessions` — activities are logged independently of the plan system. DDL here must stay in sync with `scripts/schema-v2.sql`. Nullable kcal snapshot, computed at save time.
 

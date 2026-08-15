@@ -55,6 +55,17 @@ describe('estimateKcal', () => {
     expect(estimateKcal(4.0, null, MALE, 2026)).toBeNull();
     expect(estimateKcal(4.0, 0, MALE, 2026)).toBeNull();
   });
+
+  it('returns null for an implausible profile that drives BMR negative', () => {
+    const nonsense: UserProfile = {
+      weightKg: 1,
+      heightCm: 1,
+      birthYear: 1900,
+      sex: 'male',
+      sessionMinutes: 60,
+    };
+    expect(estimateKcal(4.0, 60, nonsense, 2026)).toBeNull();
+  });
 });
 
 describe('MET table', () => {

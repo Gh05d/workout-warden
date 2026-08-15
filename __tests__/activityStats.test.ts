@@ -77,8 +77,8 @@ describe('formatTotals', () => {
   it('formats counts and hours, omitting hours at 0 minutes', () => {
     expect(
       formatTotals([
-        {activityId: 1, activityName: 'Surf', count: 3, minutes: 300},
-        {activityId: 2, activityName: 'Altinha', count: 1, minutes: 0},
+        {activityId: 1, activityName: 'Surf', count: 3, minutes: 300, kcal: 0},
+        {activityId: 2, activityName: 'Altinha', count: 1, minutes: 0, kcal: 0},
       ]),
     ).toBe('SURF 3× / 5.0H · ALTINHA 1×');
   });
