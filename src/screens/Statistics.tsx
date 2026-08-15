@@ -83,8 +83,12 @@ const Statistics: React.FC<BaseProps> = () => {
   useFocusEffect(
     React.useCallback(() => {
       (async () => {
-        const db = await getDBConnection();
-        setKcalTotals(await fetchKcalTotals(db));
+        try {
+          const db = await getDBConnection();
+          setKcalTotals(await fetchKcalTotals(db));
+        } catch (err) {
+          setError(err as Error);
+        }
       })();
     }, []),
   );
