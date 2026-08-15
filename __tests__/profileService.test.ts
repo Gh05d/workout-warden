@@ -19,6 +19,7 @@ import {
   setSetting,
   fetchProfile,
   saveProfile,
+  finishSession,
 } from '../src/common/databaseService';
 import {estimateKcal, STRENGTH_MET, ACTIVITY_MET} from '../src/common/calories';
 import type {UserProfile} from '../src/common/types';
@@ -200,5 +201,41 @@ describe('saveProfile backfill (gaps only)', () => {
     expect(rows[0].kcal).toBe(estimateKcal(STRENGTH_MET, 60, PROFILE, YEAR));
     expect(rows[1].kcal).toBeNull();
     expect(rows[2].kcal).toBe(777);
+  });
+});
+
+describe('finishSession kcal snapshot', () => {
+  it('writes the flat estimate when a profile exists', async () => {
+    const db = makeDb();
+    await saveProfile(db, {...PROFILE, sessionMinutes: 75});
+    rawOf(db).exec(`INSERT INTO weeks (id, plan_id) VALUES (1, 1)`);
+    rawOf(db).exec(
+      `INSERT INTO sessions (id, week_id, day_index, session_name) VALUES (10, 1, 1, 'Lower')`,
+    );
+    await finishSession(db, 10);
+    const row = rawOf(db)
+      .prepare(`SELECT finished, kcal FROM sessions WHERE id = 10`)
+      .get() as {finished: number; kcal: number | null};
+    expect(row.finished).toBe(1);
+    expect(row.kcal).toBe(
+      estimateKcal(STRENGTH_MET, 75, {...PROFILE, sessionMinutes: 75}, YEAR),
+    );
+  });
+
+  it('writes null without a profile and still cascades the week', async () => {
+    const db = makeDb();
+    rawOf(db).exec(`INSERT INTO weeks (id, plan_id) VALUES (1, 1)`);
+    rawOf(db).exec(
+      `INSERT INTO sessions (id, week_id, day_index, session_name) VALUES (10, 1, 1, 'Lower')`,
+    );
+    await finishSession(db, 10);
+    const s = rawOf(db)
+      .prepare(`SELECT kcal FROM sessions WHERE id = 10`)
+      .get() as {kcal: number | null};
+    expect(s.kcal).toBeNull();
+    const w = rawOf(db)
+      .prepare(`SELECT finished FROM weeks WHERE id = 1`)
+      .get() as {finished: number};
+    expect(w.finished).toBe(1);
   });
 });

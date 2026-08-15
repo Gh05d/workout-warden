@@ -929,9 +929,16 @@ export async function finishSession(
   db: SQLiteDatabase,
   sessionId: number,
 ): Promise<void> {
+  const profile = await fetchProfile(db);
+  const kcal = estimateKcal(
+    STRENGTH_MET,
+    profile?.sessionMinutes ?? null,
+    profile,
+    new Date().getFullYear(),
+  );
   await db.executeSql(
-    `UPDATE sessions SET finished = 1, trained_at = datetime('now') WHERE id = ?`,
-    [sessionId],
+    `UPDATE sessions SET finished = 1, trained_at = datetime('now'), kcal = ? WHERE id = ?`,
+    [kcal, sessionId],
   );
 
   // Cascade: if all sessions in week are finished, mark week finished
