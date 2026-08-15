@@ -41,6 +41,7 @@ import {
   fetchPlanDays,
   fetchPlans,
   fetchProfile,
+  fetchTodayKcal,
   getDBConnection,
   importDatabase,
   initDB,
@@ -82,6 +83,7 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
   const [profileVisible, setProfileVisible] = React.useState(false);
   const [profileError, setProfileError] = React.useState<string | null>(null);
+  const [todayKcal, setTodayKcal] = React.useState(0);
 
   const refresh = React.useCallback(async () => {
     const db = await getDBConnection();
@@ -90,27 +92,30 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
     const heatmapFrom = new Date(startOfWeek(new Date()));
     heatmapFrom.setDate(heatmapFrom.getDate() - 15 * 7);
     const fromKey = isoDate(heatmapFrom);
+    const todayKey = isoDate(new Date());
 
-    let [s, p, h, ah, acts, prof] = await Promise.all([
+    let [s, p, h, ah, acts, prof, today] = await Promise.all([
       fetchHomeSummary(db),
       fetchPlans(db),
       fetchHeatmapData(db, fromKey),
       fetchActivityHeatmapData(db, fromKey),
       fetchActivities(db),
       fetchProfile(db),
+      fetchTodayKcal(db, todayKey),
     ]);
     // Self-heal: an imported DB may be missing the active_plan_id setting
     // and/or the Surf/Strength seed plans. Re-run initDB once to repair.
     if (s == null) {
       await initDB();
       const db2 = await getDBConnection();
-      [s, p, h, ah, acts, prof] = await Promise.all([
+      [s, p, h, ah, acts, prof, today] = await Promise.all([
         fetchHomeSummary(db2),
         fetchPlans(db2),
         fetchHeatmapData(db2, fromKey),
         fetchActivityHeatmapData(db2, fromKey),
         fetchActivities(db2),
         fetchProfile(db2),
+        fetchTodayKcal(db2, todayKey),
       ]);
     }
     // plan_days is the *recurring* weekly schedule, which maps onto any calendar
@@ -125,6 +130,7 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
     setActivityHeat(ah);
     setActivities(acts);
     setProfile(prof);
+    setTodayKcal(today);
   }, []);
 
   const scheduledWeekdays = React.useMemo(
@@ -282,6 +288,17 @@ const Home: React.FC<BaseProps> = ({navigation}) => {
               />
             )}
 
+            {todayKcal > 0 && (
+              <View style={styles.kcalToday}>
+                <AppText bold style={styles.kcalTodayLabel}>
+                  BURNED TODAY
+                </AppText>
+                <AppText bold style={styles.kcalTodayValue}>
+                  {`~${todayKcal} KCAL`}
+                </AppText>
+              </View>
+            )}
+
             <CurrentWeekStrip
               data={heatmap}
               scheduledWeekdays={scheduledWeekdays}
@@ -427,6 +444,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   dataButtons: {flexDirection: 'row', gap: 8},
+  kcalToday: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.rule,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  kcalTodayLabel: {fontSize: 11, letterSpacing: 2, color: colors.faint},
+  kcalTodayValue: {
+    fontSize: 13,
+    letterSpacing: 1.4,
+    color: colors.ink,
+    fontVariant: ['tabular-nums'],
+  },
 });
 
 export default Home;
