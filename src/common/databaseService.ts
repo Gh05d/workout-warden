@@ -1060,6 +1060,43 @@ export async function fetchAllExerciseSlugs(
   return res.rows.raw();
 }
 
+/** Today's approximate burn: activity snapshots (performed_at is already a
+ * local date) + finished plan sessions (trained_at is UTC → 'localtime'). */
+export async function fetchTodayKcal(
+  db: SQLiteDatabase,
+  todayIsoDate: string,
+): Promise<number> {
+  const [res] = await db.executeSql(
+    `SELECT
+       (SELECT COALESCE(SUM(kcal), 0) FROM activity_sessions WHERE performed_at = ?)
+       +
+       (SELECT COALESCE(SUM(kcal), 0) FROM sessions WHERE finished = 1 AND DATE(trained_at, 'localtime') = ?)
+       AS total`,
+    [todayIsoDate, todayIsoDate],
+  );
+  return res.rows.item(0).total as number;
+}
+
+export interface KcalTotals {
+  training: number;
+  activities: number;
+  total: number;
+}
+
+export async function fetchKcalTotals(db: SQLiteDatabase): Promise<KcalTotals> {
+  const [res] = await db.executeSql(
+    `SELECT
+       (SELECT COALESCE(SUM(kcal), 0) FROM sessions) AS training,
+       (SELECT COALESCE(SUM(kcal), 0) FROM activity_sessions) AS activities`,
+  );
+  const r = res.rows.item(0);
+  return {
+    training: r.training as number,
+    activities: r.activities as number,
+    total: (r.training as number) + (r.activities as number),
+  };
+}
+
 // ---------- Activities ----------
 
 export async function fetchActivities(db: SQLiteDatabase): Promise<Activity[]> {

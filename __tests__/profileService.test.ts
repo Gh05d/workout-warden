@@ -20,8 +20,11 @@ import {
   fetchProfile,
   saveProfile,
   finishSession,
+  fetchTodayKcal,
+  fetchKcalTotals,
 } from '../src/common/databaseService';
 import {estimateKcal, STRENGTH_MET, ACTIVITY_MET} from '../src/common/calories';
+import {isoDate} from '../src/components/heatmapMath';
 import type {UserProfile} from '../src/common/types';
 
 const schemaSql = readFileSync(
@@ -237,5 +240,51 @@ describe('finishSession kcal snapshot', () => {
       .prepare(`SELECT finished FROM weeks WHERE id = 1`)
       .get() as {finished: number};
     expect(w.finished).toBe(1);
+  });
+});
+
+describe('kcal aggregates', () => {
+  it('fetchTodayKcal sums both sources for the given local day', async () => {
+    const db = makeDb();
+    const today = isoDate(new Date());
+    rawOf(db).exec(
+      `INSERT INTO activity_sessions (activity_id, performed_at, duration_minutes, kcal) VALUES
+         (1, '${today}', 90, 400),
+         (1, '${today}', 30, 100),
+         (1, '2020-01-01', 60, 999)`,
+    );
+    rawOf(db).exec(`INSERT INTO weeks (id, plan_id) VALUES (1, 1)`);
+    rawOf(db).exec(
+      `INSERT INTO sessions (id, week_id, day_index, session_name, finished, trained_at, kcal) VALUES
+         (10, 1, 1, 'Lower', 1, datetime('now'), 300),
+         (11, 1, 2, 'Upper', 1, '2020-01-01 10:00:00', 999),
+         (12, 1, 3, 'Push', 0, NULL, NULL)`,
+    );
+    expect(await fetchTodayKcal(db, today)).toBe(800);
+  });
+
+  it('fetchTodayKcal returns 0 when nothing is logged', async () => {
+    const db = makeDb();
+    expect(await fetchTodayKcal(db, isoDate(new Date()))).toBe(0);
+  });
+
+  it('fetchKcalTotals sums each source over all time', async () => {
+    const db = makeDb();
+    rawOf(db).exec(
+      `INSERT INTO activity_sessions (activity_id, performed_at, duration_minutes, kcal) VALUES
+         (1, '2026-08-01', 90, 400),
+         (2, '2026-08-02', NULL, NULL)`,
+    );
+    rawOf(db).exec(`INSERT INTO weeks (id, plan_id) VALUES (1, 1)`);
+    rawOf(db).exec(
+      `INSERT INTO sessions (id, week_id, day_index, session_name, finished, kcal) VALUES
+         (10, 1, 1, 'Lower', 1, 300),
+         (11, 1, 2, 'Upper', 0, NULL)`,
+    );
+    expect(await fetchKcalTotals(db)).toEqual({
+      training: 300,
+      activities: 400,
+      total: 700,
+    });
   });
 });
