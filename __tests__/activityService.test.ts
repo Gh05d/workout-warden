@@ -19,8 +19,11 @@ import {
   fetchActivityHeatmapData,
   fetchActivitySessions,
   fetchRecentSpots,
+  saveProfile,
   updateActivitySession,
 } from '../src/common/databaseService';
+import {estimateKcal, ACTIVITY_MET} from '../src/common/calories';
+import type {UserProfile} from '../src/common/types';
 
 const schemaSql = readFileSync(
   resolve(__dirname, '../scripts/schema-v2.sql'),
@@ -328,5 +331,80 @@ describe('fetchRecentSpots', () => {
     const map = await fetchRecentSpots(db);
     expect(map.get(1)).toEqual(['Praia do Forte']);
     expect(map.get(2)).toEqual(['Praia do Forte']);
+  });
+});
+
+describe('kcal snapshots', () => {
+  const PROFILE: UserProfile = {
+    weightKg: 80,
+    heightCm: 180,
+    birthYear: 1990,
+    sex: 'male',
+    sessionMinutes: 60,
+  };
+  const YEAR = new Date().getFullYear();
+
+  it('stores null kcal when no profile exists', async () => {
+    const db = makeDb();
+    await createActivitySession(db, {
+      activityId: 1,
+      performedAt: '2026-08-05',
+      durationMinutes: 90,
+      spot: null,
+      note: null,
+    });
+    const [s] = await fetchActivitySessions(db);
+    expect(s.kcal).toBeNull();
+  });
+
+  it('computes kcal at create time from duration × profile × activity MET', async () => {
+    const db = makeDb();
+    await saveProfile(db, PROFILE);
+    await createActivitySession(db, {
+      activityId: 1,
+      performedAt: '2026-08-05',
+      durationMinutes: 90,
+      spot: null,
+      note: null,
+    });
+    const [s] = await fetchActivitySessions(db);
+    expect(s.kcal).toBe(estimateKcal(ACTIVITY_MET.surf, 90, PROFILE, YEAR));
+  });
+
+  it('stores null kcal for untimed entries even with a profile', async () => {
+    const db = makeDb();
+    await saveProfile(db, PROFILE);
+    await createActivitySession(db, {
+      activityId: 1,
+      performedAt: '2026-08-05',
+      durationMinutes: null,
+      spot: null,
+      note: null,
+    });
+    const [s] = await fetchActivitySessions(db);
+    expect(s.kcal).toBeNull();
+  });
+
+  it('recomputes kcal on every update (duration and activity changes)', async () => {
+    const db = makeDb();
+    await saveProfile(db, PROFILE);
+    const id = await createActivitySession(db, {
+      activityId: 1,
+      performedAt: '2026-08-05',
+      durationMinutes: 60,
+      spot: null,
+      note: null,
+    });
+    await updateActivitySession(db, id, {durationMinutes: 120});
+    let [s] = await fetchActivitySessions(db);
+    expect(s.kcal).toBe(estimateKcal(ACTIVITY_MET.surf, 120, PROFILE, YEAR));
+
+    await updateActivitySession(db, id, {activityId: 2});
+    [s] = await fetchActivitySessions(db);
+    expect(s.kcal).toBe(estimateKcal(ACTIVITY_MET.altinha, 120, PROFILE, YEAR));
+
+    await updateActivitySession(db, id, {durationMinutes: null});
+    [s] = await fetchActivitySessions(db);
+    expect(s.kcal).toBeNull();
   });
 });

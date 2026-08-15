@@ -1080,13 +1080,41 @@ export async function fetchActivitySessions(
   return res.rows.raw();
 }
 
+/** Snapshot input: the row's activity MET × its duration × current profile.
+ * Null when the profile or duration is missing — never 0. */
+async function computeActivityKcal(
+  db: SQLiteDatabase,
+  activityId: number,
+  durationMinutes: number | null,
+): Promise<number | null> {
+  if (durationMinutes == null) return null;
+  const profile = await fetchProfile(db);
+  if (profile == null) return null;
+  const [res] = await db.executeSql(
+    `SELECT slug FROM activities WHERE id = ?`,
+    [activityId],
+  );
+  if (res.rows.length === 0) return null;
+  return estimateKcal(
+    activityMet(res.rows.item(0).slug),
+    durationMinutes,
+    profile,
+    new Date().getFullYear(),
+  );
+}
+
 export async function createActivitySession(
   db: SQLiteDatabase,
   draft: ActivitySessionDraft,
 ): Promise<number> {
+  const kcal = await computeActivityKcal(
+    db,
+    draft.activityId,
+    draft.durationMinutes,
+  );
   const [ins] = await db.executeSql(
-    `INSERT INTO activity_sessions (activity_id, performed_at, duration_minutes, spot, note, rating)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO activity_sessions (activity_id, performed_at, duration_minutes, spot, note, rating, kcal)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       draft.activityId,
       draft.performedAt,
@@ -1094,6 +1122,7 @@ export async function createActivitySession(
       draft.spot,
       draft.note,
       draft.rating ?? null,
+      kcal,
     ],
   );
   return ins.insertId;
@@ -1136,6 +1165,24 @@ export async function updateActivitySession(
     `UPDATE activity_sessions SET ${fields.join(', ')} WHERE id = ?`,
     params,
   );
+  // Snapshot refresh: every save recomputes kcal from the row's now-current
+  // duration/activity and the current profile.
+  const [row] = await db.executeSql(
+    `SELECT activity_id, duration_minutes FROM activity_sessions WHERE id = ?`,
+    [id],
+  );
+  if (row.rows.length > 0) {
+    const r = row.rows.item(0);
+    const kcal = await computeActivityKcal(
+      db,
+      r.activity_id,
+      r.duration_minutes,
+    );
+    await db.executeSql(`UPDATE activity_sessions SET kcal = ? WHERE id = ?`, [
+      kcal,
+      id,
+    ]);
+  }
 }
 
 export async function deleteActivitySession(
