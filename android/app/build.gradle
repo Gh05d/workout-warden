@@ -81,8 +81,8 @@ android {
         applicationId "com.workoutwarden"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 35
-        versionName "2.2.14"
+        versionCode 36
+        versionName "2.2.15"
     }
     signingConfigs {
         debug {
