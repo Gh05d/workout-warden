@@ -10,13 +10,13 @@ import Reanimated, {FadeIn} from 'react-native-reanimated';
 
 import AppText from './AppText';
 import {colors} from '../common/theme';
-import {activityColor, planColor} from '../common/planColor';
+import {activityColor, diagonalBands, planColor} from '../common/planColor';
 import type {HeatmapDatum} from '../common/databaseService';
 import type {Activity, Plan} from '../common/types';
 import {
   currentWeekStreak,
   daysInLast,
-  dayPaintPair,
+  dayPaintBands,
   dayTotalCount,
   isoDate,
   startOfWeek,
@@ -51,11 +51,25 @@ const AXIS_GAP = 6; // horizontal gap between the weekday axis and the grid
 
 // A day is tinted by its color sources (dominant plan and/or activities):
 // the pastel `bg` for a single entry, the saturated `fg` for two or more —
-// mixed days always have 2+ entries, so blends always render in fg strength.
-function fillFor(sources: DaySources): string {
-  const pair = dayPaintPair(sources);
-  if (!pair) return CELL_EMPTY;
-  return dayTotalCount(sources) >= 2 ? pair.fg : pair.bg;
+// multi-source days always have 2+ entries, so bands always render in fg
+// strength. Two or more sources paint as hard-edged diagonal bands rather than
+// one averaged color, so a gym-plus-surf day still reads as both.
+//
+// `backgroundColor` is set even when a gradient is returned: it is the visible
+// result if `experimental_backgroundImage` ever no-ops, and it also fills any
+// sub-pixel seam at the cell's edges.
+function paintFor(sources: DaySources): {
+  backgroundColor: string;
+  experimental_backgroundImage?: string;
+} {
+  const bands = dayPaintBands(sources);
+  if (bands.length === 0) return {backgroundColor: CELL_EMPTY};
+  const variant = dayTotalCount(sources) >= 2 ? 'fg' : 'bg';
+  const hexes = bands.map(b => b[variant]);
+  const gradient = diagonalBands(hexes);
+  return gradient
+    ? {backgroundColor: hexes[0], experimental_backgroundImage: gradient}
+    : {backgroundColor: hexes[0]};
 }
 
 const HeatmapCard: React.FC<Props> = ({
@@ -180,10 +194,10 @@ const HeatmapCard: React.FC<Props> = ({
                       {
                         width: cellSize,
                         height: cellSize,
-                        backgroundColor: isFuture
-                          ? 'transparent'
-                          : fillFor(sources),
                       },
+                      isFuture
+                        ? {backgroundColor: 'transparent'}
+                        : paintFor(sources),
                       isToday && styles.todayCell,
                     ]}
                   />

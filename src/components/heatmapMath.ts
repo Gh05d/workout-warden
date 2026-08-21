@@ -4,7 +4,7 @@
 // tested without pulling in React Native. All dates are LOCAL time — the
 // caller must produce `today` from the device's local Date.
 
-import {activityColor, mixHexColors, planColor} from '../common/planColor';
+import {activityColor, planColor} from '../common/planColor';
 
 /** YYYY-MM-DD in local time, matching SQLite's `DATE(..., 'localtime')` output. */
 export function isoDate(d: Date): string {
@@ -236,19 +236,27 @@ export function dayTotalCount(s: DaySources): number {
   return n;
 }
 
-/** The {bg, fg} pair a day renders with. One source → its palette pair; a
- * mixed day blends per variant (bg with bgs, fg with fgs) via mixHexColors.
- * Callers pick the variant: the heatmap shows fg from 2 total entries up —
- * which every mixed day has by definition — the week strip uses bg as the
- * cell fill and fg for rail/mark, exactly like its plan-only rendering. */
-export function dayPaintPair(s: DaySources): {bg: string; fg: string} | null {
-  const pairs: {bg: string; fg: string}[] = [];
-  if (s.plan) pairs.push(planColor(s.plan.planId));
-  for (const a of s.activities ?? []) pairs.push(activityColor(a.activityId));
-  if (pairs.length === 0) return null;
-  if (pairs.length === 1) return pairs[0];
-  return {
-    bg: mixHexColors(pairs.map(p => p.bg)),
-    fg: mixHexColors(pairs.map(p => p.fg)),
-  };
+/** The {bg, fg} palette pairs a day renders with, one per color source, in a
+ * stable order: the dominant plan first, then activities by ascending
+ * activityId. Empty for a day with nothing logged.
+ *
+ * Colors are never mixed — a multi-source day paints them as diagonal bands
+ * (see `diagonalBands`), which is what keeps a gym-plus-surf day from
+ * averaging into a color belonging to neither. Callers pick the variant: the
+ * heatmap shows fg from 2 total entries up — which every multi-source day has
+ * by definition — the week strip uses bg for the cell fill and fg for
+ * rail/mark, exactly like its plan-only rendering. `bands[0]` is the
+ * representative pair for anything that must stay a single color (cell border,
+ * day label, ✓/• mark).
+ *
+ * Sorting happens here rather than being inherited from the query, so the band
+ * order is identical for the same day whatever order the rows arrived in. */
+export function dayPaintBands(s: DaySources): {bg: string; fg: string}[] {
+  const bands: {bg: string; fg: string}[] = [];
+  if (s.plan) bands.push(planColor(s.plan.planId));
+  const activities = [...(s.activities ?? [])].sort(
+    (a, b) => a.activityId - b.activityId,
+  );
+  for (const a of activities) bands.push(activityColor(a.activityId));
+  return bands;
 }

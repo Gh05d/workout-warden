@@ -1,4 +1,4 @@
-import {activityColor, mixHexColors, planColor} from '../src/common/planColor';
+import {activityColor, diagonalBands, planColor} from '../src/common/planColor';
 
 describe('activityColor', () => {
   it('gives surf (id 1) and altinha (id 2) distinct pairs', () => {
@@ -16,21 +16,33 @@ describe('activityColor', () => {
   });
 });
 
-describe('mixHexColors', () => {
-  it('returns a single color unchanged', () => {
-    expect(mixHexColors(['#FF9800'])).toBe('#FF9800');
+describe('diagonalBands', () => {
+  it('returns null below two colors — the caller uses a plain backgroundColor', () => {
+    expect(diagonalBands([])).toBeNull();
+    expect(diagonalBands(['#FF9800'])).toBeNull();
   });
 
-  it('averages channels of a pair', () => {
-    expect(mixHexColors(['#000000', '#FFFFFF'])).toBe('#808080');
-    expect(mixHexColors(['#FF0000', '#0000FF'])).toBe('#800080');
+  it('splits a pair in half along the top-left → bottom-right diagonal', () => {
+    expect(diagonalBands(['#EF6C00', '#0277BD'])).toBe(
+      'linear-gradient(135deg, #EF6C00 0%, #EF6C00 50%, #0277BD 50%, #0277BD 100%)',
+    );
   });
 
-  it('averages three colors', () => {
-    expect(mixHexColors(['#300000', '#003000', '#000030'])).toBe('#101010');
+  it('splits three colors into equal thirds', () => {
+    expect(diagonalBands(['#AAAAAA', '#BBBBBB', '#CCCCCC'])).toBe(
+      'linear-gradient(135deg, ' +
+        '#AAAAAA 0%, #AAAAAA 33.3333%, ' +
+        '#BBBBBB 33.3333%, #BBBBBB 66.6667%, ' +
+        '#CCCCCC 66.6667%, #CCCCCC 100%)',
+    );
   });
 
-  it('throws on an empty list', () => {
-    expect(() => mixHexColors([])).toThrow();
+  it('repeats each stop position so bands have hard edges, never a blur', () => {
+    // Every color appears twice with a shared boundary offset: that is what
+    // turns a CSS gradient into a hard-edged band.
+    const css = diagonalBands(['#111111', '#222222', '#333333']) as string;
+    for (const hex of ['#111111', '#222222', '#333333']) {
+      expect(css.split(hex).length - 1).toBe(2);
+    }
   });
 });

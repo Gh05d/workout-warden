@@ -33,31 +33,35 @@ export function activityColor(activityId: number): {bg: string; fg: string} {
   return ACTIVITY_PALETTE[idx];
 }
 
-/** Per-channel sRGB mean of `#RRGGBB` colors, as an uppercase `#RRGGBB`.
- * Used for heatmap/strip cells on days with more than one color source. The
- * mix of 3+ sources drifts toward gray — accepted trade-off (see the design
- * spec); swapping this call site for a split-cell treatment is the escape
- * hatch if it reads too muddy in practice. */
-export function mixHexColors(hexes: string[]): string {
-  if (hexes.length === 0) {
-    throw new Error('mixHexColors needs at least one color');
-  }
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  for (const hex of hexes) {
-    const v = parseInt(hex.slice(1), 16);
-    // eslint-disable-next-line no-bitwise
-    r += (v >> 16) & 0xff;
-    // eslint-disable-next-line no-bitwise
-    g += (v >> 8) & 0xff;
-    // eslint-disable-next-line no-bitwise
-    b += v & 0xff;
-  }
-  const n = hexes.length;
-  const toHex = (x: number) =>
-    Math.round(x / n)
-      .toString(16)
-      .padStart(2, '0');
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+// Trailing zeros stripped so 50 reads "50%", not "50.0000%".
+const pct = (x: number) => `${Number(x.toFixed(4))}%`;
+
+/** A CSS `linear-gradient` painting `colors` as equal-width **hard-edged**
+ * diagonal bands, first color at the top-left, last at the bottom-right.
+ * Returns null below two colors — one source is a plain `backgroundColor`,
+ * which is cheaper than a gradient drawable.
+ *
+ * This replaced averaging the colors of a multi-source day: the palettes are
+ * deliberately warm (plans) vs. cool (activities), and averaging complementary
+ * hues lands near gray no matter the color space, so a day with a gym session
+ * *and* a surf rendered as an olive-brown that belonged to neither. Bands keep
+ * every source's identity.
+ *
+ * Each color gets two stops at the same pair of offsets, which is what makes
+ * the boundary a hard edge instead of a blur. 135deg points the gradient axis
+ * at the bottom-right corner, so the bands themselves run bottom-left →
+ * top-right, stacked along the top-left → bottom-right diagonal.
+ *
+ * Consumed via RN 0.85's `experimental_backgroundImage`. Callers must also set
+ * a plain `backgroundColor` (the first band) so a cell degrades to one solid
+ * color rather than to nothing if that experimental prop ever no-ops. */
+export function diagonalBands(colors: string[]): string | null {
+  if (colors.length < 2) return null;
+  const n = colors.length;
+  const stops: string[] = [];
+  colors.forEach((color, i) => {
+    stops.push(`${color} ${pct((i / n) * 100)}`);
+    stops.push(`${color} ${pct(((i + 1) / n) * 100)}`);
+  });
+  return `linear-gradient(135deg, ${stops.join(', ')})`;
 }
